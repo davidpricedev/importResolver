@@ -1,3 +1,3 @@
-const run = require("./src/importResolver");
+const run = require("./src/main").run;
 
 run();

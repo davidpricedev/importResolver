@@ -6,8 +6,29 @@
   "author": "David Price <david.price.dev@gmail.com>",
   "license": "Apache-2.0",
   "dependencies": {
-    "eslint": "^4.17.0",
     "ramda": "^0.25.0",
     "shelljs": "^0.8.1"
+  },
+  "devDependencies": {
+    "eslint": "^4.17.0",
+    "eslint-plugin-jest": "^21.3.2",
+    "eslint-plugin-prettier": "^2.3.1",
+    "jest": "^22.3.0",
+    "jest-cli": "^22.3.0"
+  },
+  "jest": {
+    "collectCoverageFrom": [
+      "src/**/*.js",
+      "!**/__mocks__/**",
+      "!**/__node_modules__/**"
+    ],
+    "testPathIgnorePatterns": [
+      "./node_modules"
+    ]
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "test": "jest . --watch",
+    "test-coverage": "jest . --coverage"
   }
 }
