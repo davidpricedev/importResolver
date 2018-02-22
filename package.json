@@ -1,6 +1,6 @@
 {
   "name": "import-resolver",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Resolves broken paths",
   "main": "index.js",
   "author": "David Price <david.price.dev@gmail.com>",
