@@ -21,7 +21,7 @@ describe("main", () => {
     describe("fileFilter", () => {
         const startList = ["node_modules", ".git"];
         const endList = [".jsx", ".js"];
-        const config = { fileType: endList, exclude: startList };
+        const config = { fileTypes: endList, exclude: startList };
 
         it("Will return true when a path matches end and doesn't match start", () => {
             expect(fileFilter(config)("src/A/B/main.js")).toBe(true);

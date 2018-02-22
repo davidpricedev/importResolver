@@ -2,14 +2,13 @@ const t = require("transducers-js");
 const R = require("ramda");
 const getConfig = require("./config").getConfig;
 const path = require("path");
-const getPotentialPaths = require("./parser").getPotentialPaths;
-const util = require("./util");
+const { getRefsFromFileContent } = require("./parser");
 const {
-    getRefsFromFileContent,
+    getFileContent,
     getAllFiles,
     getNpmFolders,
     getNpmBuiltins
-} = util;
+} = require("./util");
 
 /**
  * Main overall processing function
@@ -31,19 +30,15 @@ const run = () => {
     R.flatten(R.map(x => analyzeReferences(x, checkPath))(allFiles));
 };
 
+const isEndInList = str => R.any(R.flip(R.endsWith)(str));
+const isStartInList = str => R.any(R.flip(R.startsWith)(str));
+
 const fileFilter = config => filepath => {
     return (
-        isEndInList(filepath)(config.fileType) &&
+        isEndInList(filepath)(config.fileTypes) &&
         !isStartInList(filepath)(config.exclude)
     );
 };
-
-/**
- * The `x => str.endsWith(x)` looks like it could be simplified to `str.endsWith`
- *  but str isn't capture effectively I think when that is attempted
- */
-const isEndInList = str => R.any(R.flip(R.endsWith)(str));
-const isStartInList = str => R.any(R.flip(R.startsWith)(str));
 
 /**
  * Main processing function for a single file
@@ -53,12 +48,13 @@ const analyzeReferences = (filename, checkPath) => {
     return t.into([], analyzeXform(checkPath(filename)), allImportPaths);
 };
 
-const analyzeXform = mapFn =>
-    R.compose(t.map(mapFn), t.filter(R.complement(R.isNil)));
+const analyzeXform = mapFn => {
+    return R.compose(t.map(mapFn), t.filter(R.complement(R.isNil)));
+};
 
 const getRefsFromFile = filename => {
-    const fileContent = getRefsFromFileContent(filename);
-    return getPotentialPaths(fileContent);
+    const fileContent = getFileContent(filename);
+    return getRefsFromFileContent(fileContent);
 };
 
 /**
@@ -77,60 +73,60 @@ const getRefsFromFile = filename => {
  * @param {string} refpath - the import/require path we are working on now
  * @return {any} the array of objects containing the remappings
  */
-const _checkPath = (allFiles, npmFolders, excludedExtensions) => (
-    filename,
-    refpath
-) => {
-    if (isNpmPath(npmFolders, refpath)) {
+const _checkPath = R.curry(
+    (allFiles, npmFolders, excludedExtensions, filename, refpath) => {
+        if (isNpmPath(npmFolders, refpath)) {
+            return {
+                filename,
+                refpath,
+                reason: "NPM",
+                message: `[${filename}]: skipping ${refpath} - it is an npm module`
+            };
+        }
+
+        const exists = doesFileExistWithExtnLookup(
+            allFiles,
+            excludedExtensions,
+            getFullRelativePath(filename, refpath)
+        );
+        // no need to do anything
+        // this is the default case, so we don't want to log anything.
+        if (exists) return null;
+
+        const fileMatches = findFilesWithMatchingNames(
+            allFiles,
+            excludedExtensions,
+            path.basename(refpath)
+        );
+        if (!fileMatches || fileMatches.length === 0) {
+            return {
+                filename,
+                refpath,
+                reason: "NOT_FOUND",
+                message: `[${filename}]: skipping ${refpath} - unable to find such a file`
+            };
+        }
+
+        // future, find a way to resolve the multiple matches here
         return {
             filename,
-            refpath,
-            reason: "NPM",
-            message: `[${filename}]: skipping ${refpath} - it is an npm module`
+            oldPath: refpath,
+            reason: "RESOLVED",
+            newPath: fileMatches[0]
         };
     }
-
-    const exists = doesFileExistWithExtnLookup(
-        allFiles,
-        excludedExtensions,
-        getFullRelativePath(filename, refpath)
-    );
-    // no need to do anything
-    // this is the default case, so we don't want to log anything.
-    if (exists) return null;
-
-    const fileMatches = findFilesWithMatchingNames(
-        allFiles,
-        excludedExtensions,
-        path.basename(refpath)
-    );
-    if (!fileMatches || fileMatches.length === 0) {
-        return {
-            filename,
-            refpath,
-            reason: "NOT_FOUND",
-            message: `[${filename}]: skipping ${refpath} - unable to find such a file`
-        };
-    }
-
-    // future, find a way to resolve the multiple matches here
-    return {
-        filename,
-        oldPath: refpath,
-        reason: "RESOLVED",
-        newPath: fileMatches[0]
-    };
-};
+);
 
 const getFullRelativePath = (filename, refpath) => {
+    if (!refpath) return "";
     const fileDir = path.dirname(filename);
-    const x = path.join(fileDir, refpath);
-    console.log("full relative path: ", x);
     return path.join(fileDir, refpath);
 };
 
 const isNpmPath = (npms, refpath) => {
     // handle sub-nav into npm modules i.e. `import { put } from 'redux-saga/effects';`
+    if (!refpath) return false;
+
     const firstPathPart = refpath.includes("/")
         ? refpath.split("/")[0]
         : refpath;
