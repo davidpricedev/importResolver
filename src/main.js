@@ -1,9 +1,15 @@
+const t = require("transducers-js");
 const R = require("ramda");
 const getConfig = require("./config").getConfig;
 const path = require("path");
 const getPotentialPaths = require("./parser").getPotentialPaths;
 const util = require("./util");
-const { getFileContent, getAllFiles, getNpmFolders, getNpmBuiltins } = util;
+const {
+    getRefsFromFileContent,
+    getAllFiles,
+    getNpmFolders,
+    getNpmBuiltins
+} = util;
 
 /**
  * Main overall processing function
@@ -22,7 +28,7 @@ const run = () => {
         npmFolders,
         config.missingExtensions
     );
-    allFiles.forEach(x => processFile(x, checkPath));
+    R.flatten(R.map(x => analyzeReferences(x, checkPath))(allFiles));
 };
 
 const fileFilter = config => filepath => {
@@ -36,22 +42,34 @@ const fileFilter = config => filepath => {
  * The `x => str.endsWith(x)` looks like it could be simplified to `str.endsWith`
  *  but str isn't capture effectively I think when that is attempted
  */
-const isEndInList = str => R.any(x => str.endsWith(x));
-const isStartInList = str => R.any(x => str.startsWith(x));
+const isEndInList = str => R.any(R.flip(R.endsWith)(str));
+const isStartInList = str => R.any(R.flip(R.startsWith)(str));
 
 /**
  * Main processing function for a single file
  */
-const processFile = (filename, checkPath) => {
-    const fileContent = getFileContent(filename);
-    const allImportPaths = getPotentialPaths(fileContent);
-    return R.flatten(R.map(checkPath(filename))(allImportPaths));
+const analyzeReferences = (filename, checkPath) => {
+    const allImportPaths = getRefsFromFile(filename);
+    return t.into([], analyzeXform(checkPath(filename)), allImportPaths);
+};
+
+const analyzeXform = mapFn =>
+    R.compose(t.map(mapFn), t.filter(R.complement(R.isNil)));
+
+const getRefsFromFile = filename => {
+    const fileContent = getRefsFromFileContent(filename);
+    return getPotentialPaths(fileContent);
 };
 
 /**
  * Checks the given path found in the given filename
  *  - if the path exists, excellent nothing needs to be done
  *  - if the path doesn't exist, tries to find the location of the referenced file elsewhere in the tree
+ *
+ * Builds an object for each reference found in each file
+ *  - other than those that already exist
+ * That object may contain the info needed for search & replace
+ *  or a message about why we are skipping it.
  *
  * @param {string[]} allFiles - all the source files to examine
  * @param {string[]} npmFolders - all the npm folders to ignore/rule-out
@@ -64,42 +82,44 @@ const _checkPath = (allFiles, npmFolders, excludedExtensions) => (
     refpath
 ) => {
     if (isNpmPath(npmFolders, refpath)) {
-        console.log(`[${filename}]: skipping ${refpath} - it is an npm module`);
-        return null;
+        return {
+            filename,
+            refpath,
+            reason: "NPM",
+            message: `[${filename}]: skipping ${refpath} - it is an npm module`
+        };
     }
 
-    console.log("passed the npmcheck: ", filename, refpath);
     const exists = doesFileExistWithExtnLookup(
         allFiles,
         excludedExtensions,
         getFullRelativePath(filename, refpath)
     );
-    if (exists)
-        console.log("failed the existence check", filename, refpath, exists);
-    if (exists) return null; // no need to do anything
+    // no need to do anything
+    // this is the default case, so we don't want to log anything.
+    if (exists) return null;
 
-    console.log("passed the existence check: ", filename, refpath);
     const fileMatches = findFilesWithMatchingNames(
         allFiles,
         excludedExtensions,
         path.basename(refpath)
     );
     if (!fileMatches || fileMatches.length === 0) {
-        console.log(
-            `[${filename}]: skipping ${refpath} - unable to find such a file`
-        );
-        return null;
+        return {
+            filename,
+            refpath,
+            reason: "NOT_FOUND",
+            message: `[${filename}]: skipping ${refpath} - unable to find such a file`
+        };
     }
 
-    console.log("passed the lookup check: ", filename, refpath);
-    /// future, find a way to resolve the multiple matches here
-    //if (fileMatches && fileMatches.length === 1) {
+    // future, find a way to resolve the multiple matches here
     return {
         filename,
         oldPath: refpath,
+        reason: "RESOLVED",
         newPath: fileMatches[0]
     };
-    //}
 };
 
 const getFullRelativePath = (filename, refpath) => {
@@ -153,7 +173,8 @@ module.exports = {
     fileFilter,
     isEndInList,
     isStartInList,
-    processFile,
+    analyzeReferences,
+    analyzeXform,
     doesFileExistWithExtnLookup,
     getPotentialFileNames,
     endsWith,

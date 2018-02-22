@@ -1,5 +1,6 @@
 jest.mock("./util");
 jest.mock("./config");
+const t = require("transducers-js");
 const util = require("./util");
 const main = require("./main");
 const {
@@ -11,13 +12,35 @@ const {
     findFilesWithMatchingNames,
     endsWith,
     filterBySubset,
-    getPotentialFileNames
+    getPotentialFileNames,
+    analyzeXform,
+    fileFilter
 } = main;
 
 describe("main", () => {
-    describe("fileFilter", () => {});
+    describe("fileFilter", () => {
+        const startList = ["node_modules", ".git"];
+        const endList = [".jsx", ".js"];
+        const config = { fileType: endList, exclude: startList };
 
-    describe("matchesStart", () => {
+        it("Will return true when a path matches end and doesn't match start", () => {
+            expect(fileFilter(config)("src/A/B/main.js")).toBe(true);
+        });
+
+        it("Will return false when a path matches end and start", () => {
+            expect(fileFilter(config)("node_modules/A/B/main.js")).toBe(false);
+        });
+
+        it("Will return false when a path doesn't match end or start", () => {
+            expect(fileFilter(config)("src/A/B/main.md")).toBe(false);
+        });
+
+        it("Will return false when a path doesn't match end and matches start", () => {
+            expect(fileFilter(config)("node_modules/A/B/main.txt")).toBe(false);
+        });
+    });
+
+    describe("isStartInList", () => {
         const list = ["node_modules", ".git"];
 
         it("Will be true when the path starts with an excluded folder", () => {
@@ -29,7 +52,7 @@ describe("main", () => {
         });
     });
 
-    describe("matchesEnd", () => {
+    describe("isEndInList", () => {
         const list = [".jsx", ".js"];
 
         it("Will be true when the file type is in the list", () => {
@@ -41,15 +64,32 @@ describe("main", () => {
         });
     });
 
+    describe("analyzeXform", () => {
+        it("Will build a map + null-filter transform based on a map function", () => {
+            const input = [0, 1, 2, 3, 4, 5];
+            const dblEvens = x => (x % 2 === 0 ? 2 * x : null);
+            const xform = analyzeXform(dblEvens);
+            expect(t.into([], xform, input)).toEqual([0, 4, 8]);
+        });
+    });
+
     describe("_checkPath", () => {
         const allFiles = ["X/Y/realFile.js", "X/Y/movedFile.jsx"];
         const npmFolders = ["shelljs", "redux-saga", "fs"];
         const excludedExtns = [".js", ".jsx"];
         const checkPath = _checkPath(allFiles, npmFolders, excludedExtns);
 
-        it("Will exit early if it matches an npm path", () => {
-            const result = checkPath("A/B/main.js", "redux-saga/effects");
-            expect(result).toBe(null);
+        it("Will exit early with a message if it matches an npm path", () => {
+            const file = "A/B/main.js";
+            const refpath = "redux-saga/effects";
+            const result = checkPath(file, refpath);
+            const expected = {
+                filename: file,
+                refpath,
+                reason: "NPM",
+                message: `[${file}]: skipping ${refpath} - it is an npm module`
+            };
+            expect(result).toEqual(expected);
         });
 
         it("Will exit early if the referenced file exists", () => {
@@ -58,8 +98,16 @@ describe("main", () => {
         });
 
         it("Will exit early if the referenced file cannot be found anywhere in the allFiles tree", () => {
-            const result = checkPath("A/B/main.js", "./utils");
-            expect(result).toBe(null);
+            const file = "A/B/main.js";
+            const refpath = "./utils";
+            const result = checkPath(file, refpath);
+            const expected = {
+                filename: file,
+                refpath,
+                reason: "NOT_FOUND",
+                message: `[${file}]: skipping ${refpath} - unable to find such a file`
+            };
+            expect(result).toEqual(expected);
         });
 
         it("Will return an object containing info about replacement when a match is found", () => {
