@@ -1,179 +1,108 @@
-const t = require("transducers-js");
-const R = require("ramda");
+const { has, complement, ifElse, contains, merge, either } = require("ramda");
 const getConfig = require("./config").getConfig;
 const path = require("path");
-const { getRefsFromFileContent } = require("./parser");
+const { getProcArgs, getAllNpms } = require("./io");
+const { I } = require("./combinators");
 const {
-    getFileContent,
-    getAllFiles,
-    getNpmFolders,
-    getNpmBuiltins
-} = require("./util");
+    getFullRelativePath,
+    isNpmPath,
+    findFilesWithMatchingNames,
+    getProjectFiles,
+    getRefsFromFile,
+    doesFileExistWithExtnLookup,
+    replaceContent,
+} = require("./file");
+const { resolve } = require("./resolve");
 
-/**
- * Main overall processing function
- */
+/************
+ ** Dictionary:
+ **  ref: reference to another file found in an import or require
+ **  reference: general term for either import or require
+ ************/
+
+/*
+type resolveObj = {
+    filename: string, // the file
+    oldPath: string, // old ref path
+    newPath: string, // replacement ref path
+    reason: string, // error or ok
+    message: string, // error
+}
+*/
+
 const run = () => {
-    const config = getConfig();
-    const allFiles = getAllFiles().filter(fileFilter(config));
+    const args = getProcArgs();
+    const config = getConfig(args);
+    const allFiles = getProjectFiles();
+    const allNpms = getAllNpms();
 
-    // special handling for various node modules is needed
-    const npmFolders = [...getNpmFolders(), ...getNpmBuiltins()];
+    const myRefExists = refExists(allFiles, config.excludedExtensions);
+    const findPotentialSolutions = findPotentials(allFiles, config);
+    const findBestSolution = resolveRef(allFiles, resolve(config));
+    const myIsNpmPath = isNpmPath(allNpms);
+    const execute = ifElse(isDryRun, display, applyChange)(args);
 
-    // TODO:  Check Git Clean status here
+    allFiles
+        // for each file
+        .map(getBrokenRefs(myRefExists, myIsNpmPath))
+        // unnest the list of lists
+        .flatmap(I)
+        // find potential solutions and add them to the object
+        .map(x => x.concat(findPotentialSolutions))
+        .map(x => x.concat(findBestSolution))
+        // Apply the changes - actually make the replacements
+        .map(execute);
+};
 
-    const checkPath = _checkPath(
+const isDryRun = contains("--dry-run");
+
+const getBrokenRefs = (doesExist, isNpm) => file =>
+    getRefsFromFile(file)
+        // skip if the reference exists or its an npm
+        .filter(either(complement(doesExist), complement(isNpm)))
+        // xform to obj
+        .map(buildResolveObj(file));
+
+const buildResolveObj = filename => oldPath => ({ filename, oldPath });
+
+const refExists = (allFiles, excludedExtensions) => (filename, refpath) =>
+    doesFileExistWithExtnLookup(
         allFiles,
-        npmFolders,
-        config.missingExtensions
+        excludedExtensions,
+        getFullRelativePath(filename, refpath)
     );
-    R.flatten(R.map(x => analyzeReferences(x, checkPath))(allFiles));
+
+const findPotentials = (allFiles, config) => fileAndRef => ({
+    potentials: findFilesWithMatchingNames(
+        allFiles,
+        config.excludedExtensions,
+        path.basename(fileAndRef.refpath)
+    ),
+});
+
+const resolveRef = (allFiles, resolver) => fileAndRef => {
+    return merge(fileAndRef, resolver(fileAndRef));
 };
 
-const isEndInList = str => R.any(R.flip(R.endsWith)(str));
-const isStartInList = str => R.any(R.flip(R.startsWith)(str));
+const displayChange = x =>
+    console.log(`[${x.filename}]:${x.oldPath} -> ${x.newPath}`);
 
-const fileFilter = config => filepath => {
-    return (
-        isEndInList(filepath)(config.fileTypes) &&
-        !isStartInList(filepath)(config.exclude)
-    );
+const displayError = x =>
+    console.log(`[${x.filename}]:${x.oldPath} ~ ${x.message}`);
+
+const display = ifElse(has("message"), displayError, displayChange);
+
+const applyChange = x => {
+    replaceContent(x);
+    display(x);
 };
-
-/**
- * Main processing function for a single file
- */
-const analyzeReferences = (filename, checkPath) => {
-    const allImportPaths = getRefsFromFile(filename);
-    return t.into([], analyzeXform(checkPath(filename)), allImportPaths);
-};
-
-const analyzeXform = mapFn => {
-    return R.compose(t.map(mapFn), t.filter(R.complement(R.isNil)));
-};
-
-const getRefsFromFile = filename => {
-    const fileContent = getFileContent(filename);
-    return getRefsFromFileContent(fileContent);
-};
-
-/**
- * Checks the given path found in the given filename
- *  - if the path exists, excellent nothing needs to be done
- *  - if the path doesn't exist, tries to find the location of the referenced file elsewhere in the tree
- *
- * Builds an object for each reference found in each file
- *  - other than those that already exist
- * That object may contain the info needed for search & replace
- *  or a message about why we are skipping it.
- *
- * @param {string[]} allFiles - all the source files to examine
- * @param {string[]} npmFolders - all the npm folders to ignore/rule-out
- * @param {string} filename - the file name we are working on now
- * @param {string} refpath - the import/require path we are working on now
- * @return {any} the array of objects containing the remappings
- */
-const _checkPath = R.curry(
-    (allFiles, npmFolders, excludedExtensions, filename, refpath) => {
-        if (isNpmPath(npmFolders, refpath)) {
-            return {
-                filename,
-                refpath,
-                reason: "NPM",
-                message: `[${filename}]: skipping ${refpath} - it is an npm module`
-            };
-        }
-
-        const exists = doesFileExistWithExtnLookup(
-            allFiles,
-            excludedExtensions,
-            getFullRelativePath(filename, refpath)
-        );
-        // no need to do anything
-        // this is the default case, so we don't want to log anything.
-        if (exists) return null;
-
-        const fileMatches = findFilesWithMatchingNames(
-            allFiles,
-            excludedExtensions,
-            path.basename(refpath)
-        );
-        if (!fileMatches || fileMatches.length === 0) {
-            return {
-                filename,
-                refpath,
-                reason: "NOT_FOUND",
-                message: `[${filename}]: skipping ${refpath} - unable to find such a file`
-            };
-        }
-
-        // future, find a way to resolve the multiple matches here
-        return {
-            filename,
-            oldPath: refpath,
-            reason: "RESOLVED",
-            newPath: fileMatches[0]
-        };
-    }
-);
-
-const getFullRelativePath = (filename, refpath) => {
-    if (!refpath) return "";
-    const fileDir = path.dirname(filename);
-    return path.join(fileDir, refpath);
-};
-
-const isNpmPath = (npms, refpath) => {
-    // handle sub-nav into npm modules i.e. `import { put } from 'redux-saga/effects';`
-    if (!refpath) return false;
-
-    const firstPathPart = refpath.includes("/")
-        ? refpath.split("/")[0]
-        : refpath;
-    if (firstPathPart === "." || firstPathPart === "..") return false;
-
-    return R.any(R.eqBy(firstPathPart))(npms);
-};
-
-const endsWith = R.curry((str, end) => str.endsWith(`${end}`));
-
-/**
- * Returns any of the elements in the search set that match the predicate.
- * The predicate must be curried and take two params, first the element
- * from the searchSet and second the element from the subset.
- * `superElem => subElem -> Boolean`
- */
-const filterBySubset = (predicate, searchSet, subset) => {
-    const filter = x => R.any(predicate(x))(subset);
-    return R.filter(filter)(searchSet);
-};
-
-const getPotentialFileNames = (file, extns) =>
-    R.map(R.concat(file))([...extns, ""]);
-
-const findFilesWithMatchingNames = (allFiles, excludeExtns, filename) => {
-    const potentials = getPotentialFileNames(filename, excludeExtns);
-    return filterBySubset(endsWith, allFiles, potentials);
-};
-
-const doesFileExistWithExtnLookup = R.compose(
-    R.lt(0),
-    R.length,
-    findFilesWithMatchingNames
-);
 
 module.exports = {
-    isNpmPath,
-    _checkPath,
     run,
-    fileFilter,
-    isEndInList,
-    isStartInList,
-    analyzeReferences,
-    analyzeXform,
-    doesFileExistWithExtnLookup,
-    getPotentialFileNames,
-    endsWith,
-    filterBySubset,
-    findFilesWithMatchingNames
+    findPotentials,
+    resolveRef,
+    isDryRun,
+    getBrokenRefs,
+    buildResolveObj,
+    refExists,
 };

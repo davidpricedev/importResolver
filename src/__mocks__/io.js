@@ -1,4 +1,4 @@
-const getFileContent = file => {
+const readFile = file => {
     switch (file) {
         case "A":
             return "file Content A";
@@ -7,6 +7,12 @@ const getFileContent = file => {
     }
 };
 
+const inspect = prefix => x => {
+    console.log(`inspect: ${prefix}: `, x);
+    return x;
+};
+
 module.exports = {
-    getFileContent
+    readFile,
+    inspect,
 };

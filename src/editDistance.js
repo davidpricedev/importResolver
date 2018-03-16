@@ -2,6 +2,8 @@ const R = require("ramda");
 
 /**
  * Implements a 2d table / matrix
+ * TODO: explore the possibility of migrating this entire algorithm
+ *  to use applicatives?
  */
 class Table {
     constructor(width, height, init) {
@@ -11,32 +13,32 @@ class Table {
 
         // initialize all entries with `init` or null
         const initVal = !R.isNil(init) ? init : null;
-        this.table = R.map(() => initVal)(R.range(0, this.len));
+        this.table = R.map(R.always(initVal))(R.range(0, this.len));
 
-        this.get = R.curry((i, j) => {
-            return this.table[i + j * this.width];
+        this.get = R.curry((r, c) => this.table[this.whtoindex(r, c)]);
+
+        this.set = R.curry((r, c, value) => {
+            this.table[this.whtoindex(r, c)] = value;
         });
 
-        this.set = R.curry((i, j, value) => {
-            this.table[i + j * this.width] = value;
-        });
+        this.nodeAt = Node(this);
 
-        this.whtoindex = (i, j) => i + j * this.width;
+        this.whtoindex = (r, c) => R.add(r, R.multiply(c, this.width));
 
         this.indextowh = index => {
-            const j = Math.floor(index / this.width);
-            const i = index - j * this.width;
-            return { i, j };
+            const c = Math.floor(index / this.width);
+            const r = index - c * this.width;
+            return { r, c };
         };
 
         /**
          * mutating, maps the given callback across the table.
-         * the callback should expect (x, y, value) as args
+         * the callback should expect a node as the argument
          */
         this.map = mapFn => {
             this.table.forEach((x, index) => {
-                const { i, j } = this.indextowh(index);
-                this.table[index] = mapFn(i, j, x);
+                const { r, c } = this.indextowh(index);
+                this.table[index] = mapFn(this.nodeAt(r, c));
             });
         };
 
@@ -50,40 +52,67 @@ class Table {
     }
 }
 
+const Node = R.curry((table, r, c) => ({
+    rowIndex: r,
+    colIndex: c,
+    get: () => table.get(r, c),
+    set: table.set(r, c),
+    prevInCol: () => table.nodeAt(r, c - 1),
+    prevInRow: () => table.nodeAt(r - 1, c),
+    prevDiag: () => table.nodeAt(r - 1, c - 1),
+    firstInCol: () => R.equals(0, c),
+    firstInRow: () => R.equals(0, r),
+}));
+
 /**
  * Implements a "dynamic programming" solution to calculate edit distance
  * adapted from https://nlp.stanford.edu/IR-book/html/htmledition/edit-distance-1.html
  */
-const calculateDistance = (str1, str2) => {
-    const m = new Table(str1.length + 1, str2.length + 1, 0);
-    const irange = R.range(0, m.width);
-    const jrange = R.range(0, m.height);
-    R.forEach(i => m.set(i, 0)(i), irange);
-    R.forEach(j => m.set(0, j)(j), jrange);
-    m.map((i, j, val) => {
-        if (i === 0 || j === 0) return val;
+const calculateDistance = R.curry((strh, strv) => {
+    const m = new Table(strh.length + 1, strv.length + 1, 0);
+    const myReplaceCost = getReplaceCost(strh, strv);
 
-        const rcost = getReplaceCost(
-            m.get(i - 1, j - 1),
-            str1[i - 1],
-            str2[j - 1]
-        );
-        const delcost = 1 + m.get(i - 1, j);
-        const inscost = 1 + m.get(i, j - 1);
-        const min = R.reduce(R.min, Infinity)([rcost, delcost, inscost]);
+    m.map(node => {
+        if (node.firstInCol()) return node.rowIndex;
+        if (node.firstInRow()) return node.colIndex;
+        const min = R.reduce(R.min, Infinity)([
+            myReplaceCost(node),
+            getDelCost(node),
+            getInsCost(node),
+        ]);
         return min;
     });
 
     return m.get(m.width - 1, m.height - 1);
-};
+});
 
-const getReplaceCost = (last, ival, jval) => {
-    const replaceCost = ival === jval ? 0 : 1;
-    return last + replaceCost;
-};
+const tableToStringOffset = R.add(-1);
+const getCharInStr = str => R.pipe(tableToStringOffset, R.flip(R.nth)(str));
+const getPrevInCol = node => node.prevInCol().get();
+const getPrevInRow = node => node.prevInRow().get();
+const getPrevDiag = node => node.prevDiag().get();
+const getDelCost = R.compose(R.add(1), getPrevInRow);
+const getInsCost = R.compose(R.add(1), getPrevInCol);
+const getReplaceCost = (str1, str2) => node =>
+    calculateReplaceCost(
+        getPrevDiag(node),
+        R.ap([
+            R.pipe(R.prop("rowIndex"), getCharInStr(str1)),
+            R.pipe(R.prop("colIndex"), getCharInStr(str2)),
+        ])([node])
+    );
+const identical = ([a, b]) => R.identical(a, b);
+const currentReplaceCost = R.ifElse(identical, R.always(0), R.always(1));
+const calculateReplaceCost = (last, twoChars) =>
+    R.add(last)(currentReplaceCost(twoChars));
 
 module.exports = {
     Table,
+    Node,
     calculateDistance,
-    getReplaceCost
+    calculateReplaceCost,
+    getDelCost,
+    getInsCost,
+    currentReplaceCost,
+    getReplaceCost,
 };

@@ -1,4 +1,9 @@
-const { Table, calculateDistance, getReplaceCost } = require("./editDistance");
+const {
+    Table,
+    Node,
+    calculateDistance,
+    calculateReplaceCost,
+} = require("./editDistance");
 
 describe("Table", () => {
     it("Will create an initialized 2d table", () => {
@@ -8,7 +13,7 @@ describe("Table", () => {
 
     it("Will foreach over the entire table", () => {
         const t = new Table(10, 10, 10);
-        t.map((x, y, value) => value * 2);
+        t.map(node => node.get() * 2);
         expect(t.get(0, 0)).toBe(20);
     });
 
@@ -21,7 +26,16 @@ describe("Table", () => {
         const t = new Table(10, 10, 10);
         expect(t.len).toBe(10 * 10);
         expect(t.width).toBe(10);
-        expect(t.indextowh(75)).toEqual({ i: 5, j: 7 });
+        expect(t.indextowh(75)).toEqual({ r: 5, c: 7 });
+    });
+});
+
+describe("Node", () => {
+    it("Will indicate first in column", () => {
+        const t = new Table(10, 10, 10);
+        const n = Node(t, 0, 0);
+        expect(n.firstInCol()).toBe(true);
+        expect(n.firstInRow()).toBe(true);
     });
 });
 
@@ -29,14 +43,15 @@ describe("calculateDistance", () => {
     const tests = {
         // desc: [str1, str2, expectedValue],
         catdog: ["cat", "dog", 3],
-        fatcat: ["fat", "cat", 1]
+        fatcat: ["fat", "cat", 1],
+        catalog: ["cat", "catalog", 4],
     };
 
     it("Will calculate replacement cost", () => {
-        expect(getReplaceCost(0, "a", "a")).toBe(0);
-        expect(getReplaceCost(5, "a", "a")).toBe(5);
-        expect(getReplaceCost(5, "a", "b")).toBe(6);
-        expect(getReplaceCost(0, "a", "b")).toBe(1);
+        expect(calculateReplaceCost(0, ["a", "a"])).toBe(0);
+        expect(calculateReplaceCost(5, ["a", "a"])).toBe(5);
+        expect(calculateReplaceCost(5, ["a", "b"])).toBe(6);
+        expect(calculateReplaceCost(0, ["a", "b"])).toBe(1);
     });
 
     Object.keys(tests).forEach(x => {

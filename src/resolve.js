@@ -1,38 +1,45 @@
-const R = require("ramda");
-const path = require("path");
+const {
+    pipe,
+    curry,
+    defaultTo,
+    isEmpty,
+    equals,
+    map,
+    set,
+    lensProp,
+    reduce,
+    split,
+    minBy,
+    prop,
+    objOf,
+    add,
+    multiply,
+    subtract,
+    cond,
+    T,
+    merge,
+    evolve,
+    path,
+} = require("ramda");
+const dirPath = require("path");
 const { calculateDistance } = require("./editDistance");
 
+const singleOr = (...Fns) =>
+    pipe(
+        evolve({ potentials: x => x.fromArray() }),
+        composeFirstTruthy(resolveValidation, ...Fns)
+    );
+
 /**
- * Returns the resolvor function that should be used based on the config algorithm.
- * @param {any} config - the configuration object
- * @param {string} filename - the file containing the relative path
- * @param {string} refpath - a (relative) path found in the file
- * @param {string[]} options - list of locations that match the name of the file in the path
- * TODO: provide a weighted combination that takes all of it into account
+ * Represents a potential solution to the broken reference
  */
-const resolver = config => {
-    switch (config.resolveAlgo) {
-        case "first":
-            return composeFirstTruthy(resolveValidation, first);
-        case "random":
-            return composeFirstTruthy(resolveValidation, random);
-        case "closest":
-            return composeFirstTruthy(resolveValidation, closest);
-        case "editDistance":
-            return composeFirstTruthy(resolveValidation, editDistance);
-        default:
-            console.log("Unknown / not implemented resolver option.");
-            return composeFirstTruthy(resolveValidation, first);
-    }
+const solutionObj = (fileAndRef, solution) => {
+    if (!solution) return notFoundObj(fileAndRef);
+    return merge(fileAndRef, { newPath: solution });
 };
 
-const resolveObj = (filename, oldpath, newpath) => {
-    return {
-        filename,
-        oldpath,
-        newpath
-    };
-};
+const notFoundObj = fileAndRef =>
+    merge(fileAndRef, { message: "unable to find such a file" });
 
 /**
  * Takes a list of functions and a set of arguments to be applied to those functions.
@@ -41,65 +48,101 @@ const resolveObj = (filename, oldpath, newpath) => {
  * @param {any} args
  */
 const composeFirstTruthy = (...Fns) =>
-    R.curry((...args) => Fns.reduce(firstTruthyReducer(...args), null));
+    curry((...args) => Fns.reduce(firstTruthyReducer(...args), null));
 
 const firstTruthyReducer = (...args) => (a, x) => (a ? a : x(...args));
 
-const resolveValidation = (filename, refpath, options) => {
-    if (!options || options.length === 0)
-        throw new Error("you must supply options");
+const resolveValidation = fileAndRef => {
+    if (!fileAndRef.potentials || isEmpty(fileAndRef.potentials))
+        throw new Error("you must supply potentials");
 
-    if (options.length === 1) return resolveObj(filename, refpath, options[0]);
+    if (equals(1, path(["potentials", "length"], fileAndRef)))
+        return solutionObj(fileAndRef, fileAndRef.potentials[0]);
 };
 
 /**
  * Not really any better than random...
  */
-const first = (filename, refpath, options) => {
-    return resolveObj(filename, refpath, options[0]);
+const first = resolveObj => {
+    return solutionObj(resolveObj, defaultTo([])(resolveObj.potentials)[0]);
 };
+
+const closestMap = x => pipe(setrefpath(x), setPathDist(x))({});
+const setrefpath = set(lensProp("refpath"));
+const calcPathDistance = pipe(split(dirPath.sep), prop("length"));
+const setPathDist = pipe(calcPathDistance, set(lensProp("pathDist")));
+const reduceToMinBy = x => reduce(minBy(prop(x)), objOf(x, Infinity));
 
 /**
  * Shortest distance between the file and the refpath option.
  * Good for converting to better app-like organization structure
- *  (where apart from common utils, files should be close to the referenced files).
+ *  (where apart from common utils, files should be close to the files they reference).
  */
-const closest = (filename, refpath, options) => {
-    return options
-        .map(x => ({ refpath: x, dist: x.split(path.sep).length }))
-        .reduce(R.minBy(R.prop("dist")), { dist: Infinity }).refpath;
-};
+const closest = pipe(
+    prop("potentials"),
+    defaultTo([]),
+    map(closestMap),
+    reduceToMinBy("pathDist"),
+    prop("refpath")
+);
 
 /**
  * Shortest edit distance between old and new paths.
  * Good for pluralization changes to folders
  */
-const editDistance = (filename, refpath, options) => {
-    return options
-        .map(x => ({ refpath: x, editDist: calculateDistance(refpath, x) }))
-        .reduce(R.minBy(R.prop("editDist")), { editDist: Infinity });
+const editDistance = fileAndRef => {
+    return pipe(
+        defaultTo([]),
+        map(editDistMap(fileAndRef.oldPath)),
+        reduceToMinBy("editDist"),
+        prop("refpath")
+    )(fileAndRef.potentials);
 };
+
+const editDistMap = refpath => x =>
+    pipe(setrefpath(x), setEditDist(refpath)(x))({});
+const setEditDist = refpath =>
+    pipe(calculateDistance(refpath), set(lensProp("editDist")));
 
 /**
  * Not really good for anything...
  */
-const random = (filename, refpath, options) => {
-    return resolveObj(filename, refpath, randomElem(options));
+const random = fileAndRef => {
+    return solutionObj(fileAndRef, randomElem(fileAndRef.potentials));
 };
 
 const randomElem = array => {
-    if (!array || array.length === 0)
-        throw new Error("empty array supplied to randomElem");
+    if (isEmpty(array)) throw new Error("empty array supplied to randomElem");
     return array[randomRange(0, array.length - 1)];
 };
 
-const randomRange = (lower, upper) => {
-    return lower + Math.floor(Math.random() * (upper - lower + 1));
-};
+const randomRange = (lower, upper) => toRange(lower, upper, Math.random());
+
+const toRange = curry((lower, upper, seed) =>
+    add(lower, Math.floor(multiply(add(1, subtract(upper, lower)), seed)))
+);
+
+/**
+ * Returns the resolvor function that should be used based on the config algorithm.
+ * @param {any} config - the configuration object
+ * @param {FileAndRef} fileAndRef - the object containing the info needed to resolve
+ * TODO: provide a weighted combination that takes all of it into account
+ */
+const resolver = pipe(
+    prop("resolveAlgo"),
+    cond([
+        [equals("first"), singleOr(first)],
+        [equals("random"), singleOr(random)],
+        [equals("closest"), singleOr(closest)],
+        [equals("editDistance"), singleOr(editDistance)],
+        [T, singleOr(() => console.log("Unknown resolver option"), first)],
+    ])
+);
 
 module.exports = {
     resolver,
-    resolveObj,
+    solutionObj,
+    notFoundObj,
     composeFirstTruthy,
     firstTruthyReducer,
     resolveValidation,
@@ -108,5 +151,5 @@ module.exports = {
     editDistance,
     random,
     randomElem,
-    randomRange
+    randomRange,
 };

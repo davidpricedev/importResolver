@@ -1,5 +1,8 @@
-const parser = require("./parser");
-const { getRefsFromFileContent, getImportMatches, getRequireMatches } = parser;
+const {
+    getRefsFromFileContent,
+    getImportMatches,
+    getRequireMatches,
+} = require("./parser");
 
 describe("parser", () => {
     describe("getRefsFromFileContent", () => {});
@@ -11,12 +14,12 @@ describe("parser", () => {
             multiline: `import { 
                 A,
                 B,
-            } from './A/B/theRefPath'`
+            } from './A/B/theRefPath'`,
         };
         Object.keys(stringsToCheck).forEach(x =>
             it(`Will find the import statement (${x})`, () => {
-                expect(getImportMatches(stringsToCheck[x])).toEqual([
-                    "./A/B/theRefPath"
+                expect(getImportMatches(stringsToCheck[x]).fold()).toEqual([
+                    "./A/B/theRefPath",
                 ]);
             })
         );
@@ -43,9 +46,9 @@ describe("parser", () => {
                 "c",
                 "./A/B/theRefPath",
                 "./A/B/theRefPath",
-                "./A/B/theRefPath"
+                "./A/B/theRefPath",
             ];
-            expect(getImportMatches(imports)).toEqual(expected);
+            expect(getImportMatches(imports).fold()).toEqual(expected);
         });
     });
 
@@ -56,12 +59,12 @@ describe("parser", () => {
             property: "const c = require('./x/y/therefpath').property;",
             multiline: `const x = require(
                 './x/y/therefpath'
-            );`
+            );`,
         };
         Object.keys(stringsToCheck).forEach(x =>
             it(`Will find the require statement (${x})`, () => {
-                expect(getRequireMatches(stringsToCheck[x])).toEqual([
-                    "./x/y/therefpath"
+                expect(getRequireMatches(stringsToCheck[x]).fold()).toEqual([
+                    "./x/y/therefpath",
                 ]);
             })
         );
@@ -88,9 +91,9 @@ describe("parser", () => {
                 "c",
                 "./A/B/theRefPath",
                 "./A/B/theRefPath",
-                "./A/B/theRefPath"
+                "./A/B/theRefPath",
             ];
-            expect(getRequireMatches(requires)).toEqual(expected);
+            expect(getRequireMatches(requires).fold()).toEqual(expected);
         });
     });
 

@@ -600,6 +600,10 @@ dashdash@^1.12.0:
   dependencies:
     assert-plus "^1.0.0"
 
+data.task@^3.1.1:
+  version "3.1.1"
+  resolved "https://registry.yarnpkg.com/data.task/-/data.task-3.1.1.tgz#e985f5bedadd926b2d63c1a5d2076cff917a52ad"
+
 debug@^2.2.0, debug@^2.6.8:
   version "2.6.9"
   resolved "https://registry.yarnpkg.com/debug/-/debug-2.6.9.tgz#5d128515df134ff327e90a4c93f4e077a536341f"
@@ -2023,6 +2027,10 @@ minimist@^1.1.1, minimist@^1.2.0:
   dependencies:
     minimist "0.0.8"
 
+monet@^0.9.0-alpha.4:
+  version "0.9.0-alpha.4"
+  resolved "https://registry.yarnpkg.com/monet/-/monet-0.9.0-alpha.4.tgz#2dcb32df0dc5d3fdb22444842cc40e132473ee7a"
+
 ms@2.0.0:
   version "2.0.0"
   resolved "https://registry.yarnpkg.com/ms/-/ms-2.0.0.tgz#5608aeadfc00be6c2901df5f9861788de0d597c8"
@@ -2347,6 +2355,10 @@ qs@~6.4.0:
 qs@~6.5.1:
   version "6.5.1"
   resolved "https://registry.yarnpkg.com/qs/-/qs-6.5.1.tgz#349cdf6eef89ec45c12d7d5eb3fc0c870343a6d8"
+
+ramda-adjunct@^2.5.0:
+  version "2.5.0"
+  resolved "https://registry.yarnpkg.com/ramda-adjunct/-/ramda-adjunct-2.5.0.tgz#50d7d74ca273731b05dcdda77d102bc57d7c1145"
 
 ramda@^0.25.0:
   version "0.25.0"

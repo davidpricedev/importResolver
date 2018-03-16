@@ -1,19 +1,25 @@
 const {
-    resolveObj,
+    solutionObj,
     composeFirstTruthy,
     firstTruthyReducer,
     resolveValidation,
     first,
-    closest
+    closest,
+    editDistance,
 } = require("./resolve.js");
+const { merge } = require("ramda");
 
 describe("resolve", () => {
     const tf = () => ({
         mul: jest.fn((x, y) => x * y),
-        add: jest.fn((x, y) => x + y)
+        add: jest.fn((x, y) => x + y),
     });
     const filename = "fakeFile";
     const refpath = "fakeRefPath";
+    const inputBase = {
+        filename,
+        oldPath: refpath,
+    };
 
     let t;
     beforeEach(() => {
@@ -49,61 +55,84 @@ describe("resolve", () => {
         });
     });
 
-    describe("resolveObj", () => {
-        it("Will change args to object", () => {
-            expect(resolveObj(filename, refpath, "fakeOptionA")).toEqual({
+    describe("solutionObj", () => {
+        it("Will merge solution into object", () => {
+            expect(solutionObj(inputBase, "fakeOptionA")).toEqual({
                 filename,
-                oldpath: refpath,
-                newpath: "fakeOptionA"
+                oldPath: refpath,
+                newPath: "fakeOptionA",
+            });
+        });
+
+        it("Will merge an error message if the solution is falsy", () => {
+            expect(solutionObj(inputBase, false)).toEqual({
+                filename,
+                oldPath: refpath,
+                message: "unable to find such a file",
             });
         });
     });
 
     describe("resolveValidation", () => {
         it("Will throw if no options supplied", () => {
-            expect(() => resolveValidation("", "", null)).toThrow();
-            expect(() => resolveValidation("", "", [])).toThrow();
+            expect(() => resolveValidation({})).toThrow();
+            expect(() => resolveValidation({ potentials: [] })).toThrow();
         });
 
         it("Will return the option if only one is supplied", () => {
-            expect(
-                resolveValidation(filename, refpath, ["fakeOption"])
-            ).toEqual({
-                filename,
-                oldpath: refpath,
-                newpath: "fakeOption"
+            const input = merge(inputBase, {
+                potentials: ["fakeOption"],
             });
+            expect(resolveValidation(input)).toMatchObject(
+                merge(inputBase, {
+                    newPath: "fakeOption",
+                })
+            );
         });
 
         it("Will return nothing if multiple options are supplied", () => {
-            expect(
-                resolveValidation("fakeFile", "fakeRefPath", [
-                    "fakeOptionA",
-                    "fakeOptionB"
-                ])
-            ).toBe(undefined);
+            const input = merge(inputBase, {
+                potentials: ["fakeOptionA", "fakeOptionB"],
+            });
+            expect(resolveValidation(input)).toBe(undefined);
         });
     });
 
     describe("first", () => {
         it("Will return the first option", () => {
-            expect(
-                first(filename, refpath, ["fakeOptionA", "fakeOptionB"])
-            ).toEqual({
-                filename,
-                oldpath: refpath,
-                newpath: "fakeOptionA"
+            const input = merge(inputBase, {
+                potentials: ["fakeOptionA", "fakeOptionB"],
             });
+            expect(first(input)).toMatchObject(
+                merge(inputBase, {
+                    newPath: "fakeOptionA",
+                })
+            );
         });
     });
 
     describe("closest", () => {
         it("Will find the closest option", () => {
-            const options = [
-                "../../../A/B/Z/X/Y/util.js",
-                "../../../A/B/util.js"
-            ];
-            expect(closest(filename, refpath, options)).toBe(options[1]);
+            const input = merge(inputBase, {
+                potentials: [
+                    "../../../A/B/Z/X/Y/util.js",
+                    "../../../A/B/util.js",
+                ],
+            });
+            expect(closest(input)).toBe(input.potentials[1]);
+        });
+    });
+
+    describe("editDistance", () => {
+        it("Will find the nearest path by edit distance", () => {
+            const input = merge(inputBase, {
+                oldPath: "../../feature/cosmicChameleon",
+                potentials: [
+                    "../../features/cosmicChameleon",
+                    "../../view/cosmicChameleon",
+                ],
+            });
+            expect(editDistance(input)).toBe(input.potentials[0]);
         });
     });
 });

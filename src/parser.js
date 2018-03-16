@@ -1,4 +1,6 @@
-const R = require("ramda");
+const { memoizeWith, nth } = require("ramda");
+const { List } = require("./adts");
+const { B } = require("./combinators");
 
 // TODO: use ast parsing and/or otherwise handle multi-line import statements
 // Adapted from https://github.com/alantheprice/es6-import/blob/master/src/consts.js
@@ -9,36 +11,33 @@ const REQUIRE_REGEX = "require\\(\\s*['`\"](.*)['`\"]\\s*\\)";
 /**
  * Returns a list of all the paths referenced in import and require statements
  */
-const getRefsFromFileContent = fileContent => {
-    return R.uniq(
-        R.concat(getImportMatches(fileContent), getRequireMatches(fileContent))
+const getRefsFromFileContent = fileContent =>
+    getImportMatches(fileContent)
+        .concat(getRequireMatches(fileContent))
+        .unique()
+        .fold();
+
+const getCaptureGroup = (regexStr, n) => str => {
+    if (!str || typeof str !== "string") return List.of();
+    return List.of(str.match(getRegex(regexStr, "g"))).map(
+        getCapture(regexStr, n)
     );
 };
+const getCapture = (regexStr, n) => B(nth(n))(regexExec(regexStr));
+const regexExec = regexStr => m => getRegex(regexStr).exec(m);
 
-/**
- * The regex fails to work properly inside the map function unless we
- * recreate it there.
- * Regex creation is notoriously bad for performance, but to get correct behaviour we have to.
- * TODO: try memoizing the global vs non-global versions to see if that works
- */
-const getRegexCaptures = regexStr => str => {
-    const matches = str.match(new RegExp(regexStr, "g")) || [];
-    return matches.map(x => {
-        const mArr = new RegExp(regexStr).exec(x);
-        if (mArr === null) return null;
-        return mArr[1];
-    });
-};
+const memoizeRegex = memoizeWith((regexStr, flags) => `${regexStr}${flags}`);
+const getRegex = memoizeRegex((regexStr, flags) => new RegExp(regexStr, flags));
 
-const getImportMatches = getRegexCaptures(IMPORT_REGEX);
+const getImportMatches = getCaptureGroup(IMPORT_REGEX, 1);
 
-const getRequireMatches = getRegexCaptures(REQUIRE_REGEX);
+const getRequireMatches = getCaptureGroup(REQUIRE_REGEX, 1);
 
 module.exports = {
     getRefsFromFileContent,
     getImportMatches,
     getRequireMatches,
-    getRegexCaptures,
+    getCaptureGroup,
     IMPORT_REGEX,
-    REQUIRE_REGEX
+    REQUIRE_REGEX,
 };
