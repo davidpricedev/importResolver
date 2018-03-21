@@ -1,8 +1,7 @@
-const util = require("./io");
-const R = require("ramda");
-const { List } = require("monet");
-
-const { doesFileExist } = util;
+const { cond, contains } = require("ramda");
+const { List, reduceObj } = require("./adts");
+const { I, K, T } = require("./combinators");
+const { requireCwd, doesFileExist } = require("./io");
 
 const EXPECTED_CONFIG_NAME = "./importResolver.json";
 
@@ -37,7 +36,7 @@ export type Config = {
 
 const defaultConfig = () => ({
     fileTypes: [".js", ".jsx", ".mjs", ".ts", ".tsx"],
-    missingExtensions: [".js", ".jsx", ".mjs", ".ts", ".tsx"],
+    missingExtensions: [".js", ".jsx", ".mjs", ".ts", ".tsx", ".json"],
     exclude: [".git", "node_modules", "coverage"],
     requireGitClean: false,
     resolveAlgo: "first",
@@ -47,20 +46,29 @@ const defaultConfig = () => ({
  * Loads the config file from the file provided on teh command line or the canonically named json file
  */
 const getConfig = rawArgs =>
-    List.fromArray(rawArgs)
-        .reverse()
-        .headMaybe()
-        .map(
-            R.cond([
-                [doesFileExist, require],
-                [
-                    () => doesFileExist(EXPECTED_CONFIG_NAME),
-                    () => require(EXPECTED_CONFIG_NAME),
-                ],
-                [R.T, defaultConfig()],
-            ])
-        )
-        .orSome(defaultConfig());
+    List.of([getConfigFileContent, getDryRun])
+        .map(T(rawArgs))
+        .reduce(reduceObj);
+
+const getConfigFileContent = args =>
+    List.of(args)
+        .maybeLast()
+        .coalesce(findBestConfig, findBestConfig)
+        .fold(I);
+
+const cmdArgCase = () => [doesFileExist, requireCwd];
+
+const wellKnownCase = () => [
+    () => doesFileExist(EXPECTED_CONFIG_NAME),
+    () => requireCwd(EXPECTED_CONFIG_NAME),
+];
+
+const defaultCase = () => [K(true), defaultConfig];
+
+const findBestConfig = cond([cmdArgCase(), wellKnownCase(), defaultCase()]);
+
+const getDryRun = args => ({ dryRun: isDryRun(args) });
+const isDryRun = contains("--dry-run");
 
 module.exports = {
     getConfig,

@@ -1,42 +1,53 @@
 const sh = require("shelljs");
-const R = require("ramda");
-//const { IO } = require("monet");
+const { memoizeWith, concat, ifElse } = require("ramda");
+const { K } = require("./combinators");
+const path = require("path");
 
 /******************
  * All the IO side effects
  *****************/
 
-const readFile = sh.cat;
+const prefixCwd = x => path.join(process.cwd(), x);
 
-const writeFile = filename => content => sh.ShellString(content).to(filename);
+const stripCwd = x => x.replace(`${process.cwd()}/`, "");
 
-const doesFileExist = x => sh.test("-e", x);
+const writeFile = filename => content => _writeFileContent(filename, content);
+const _writeFileContent = (filename, content) =>
+    sh.ShellString(content).to(filename);
 
-const getAllFiles = path => sh.find(path);
+const doesFileExist = x => !!x && sh.test("-e", x);
 
-const getNpmFolders = () => sh.ls("node_modules");
+const readFile = ifElse(doesFileExist, x => sh.cat(x).stdout, K(null));
+
+const getAllFiles = path => sh.find(prefixCwd(path)); //.map(stripCwd);
+
+const getNpmFolders = () => sh.ls(prefixCwd("node_modules"));
 
 const getNpmBuiltins = () => require("repl")._builtinLibs;
 
-const getAllNpms = () => R.concat(getNpmFolders(), getNpmBuiltins());
+const getAllNpms = () => concat(getNpmFolders(), getNpmBuiltins());
 
 const getProcArgs = () => process.argv.splice(2);
 
+const memoizeRegex = memoizeWith((regexStr, flags) => `${regexStr}${flags}`);
+const getRegex = memoizeRegex((regexStr, flags) => new RegExp(regexStr, flags));
+
 /**
- * Acts as the identity function with a console.log side effect,
- *  throws the prefix on the beginning of the console.log output
+ * `require` that uses the current working directory as a reference point
+ *  instead of the script-file location.
+ * Useful for pulling in config files - for instance
  */
-const inspect = prefix => x => {
-    console.log(`inspect: ${prefix}: `, x);
-    return x;
-};
+const requireCwd = file => require(prefixCwd(file));
 
 module.exports = {
     readFile,
+    stripCwd,
     writeFile,
+    _writeFileContent,
     doesFileExist,
     getAllFiles,
     getAllNpms,
     getProcArgs,
-    inspect,
+    requireCwd,
+    getRegex,
 };

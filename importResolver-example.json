@@ -1,0 +1,7 @@
+{
+    "fileTypes": [".js", ".jsx", ".mjs", ".ts", ".tsx"],
+    "missingExtensions": [".js", ".jsx", ".mjs", ".ts", ".tsx", ".json"],
+    "exclude": [".git", "node_modules", "coverage"],
+    "requireGitClean": false,
+    "resolveAlgo": "first"
+}

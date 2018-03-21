@@ -35,5 +35,11 @@
     "lint": "eslint .",
     "test": "jest . --watch",
     "test-coverage": "jest . --coverage"
+  },
+  "files": [
+    "src/**/*.js"
+  ],
+  "bin": {
+    "import-resolver": "./index.js"
   }
 }

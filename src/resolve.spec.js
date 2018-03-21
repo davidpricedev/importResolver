@@ -9,7 +9,7 @@ const {
 } = require("./resolve.js");
 const { merge } = require("ramda");
 
-describe("resolve", () => {
+xdescribe("resolve", () => {
     const tf = () => ({
         mul: jest.fn((x, y) => x * y),
         add: jest.fn((x, y) => x + y),

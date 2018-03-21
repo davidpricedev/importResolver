@@ -1,6 +1,6 @@
-const { memoizeWith, nth } = require("ramda");
-const { List } = require("./adts");
-const { B } = require("./combinators");
+const { nth, contains, pipe } = require("ramda");
+const { Maybe } = require("./adts");
+const { getRegex } = require("./io");
 
 // TODO: use ast parsing and/or otherwise handle multi-line import statements
 // Adapted from https://github.com/alantheprice/es6-import/blob/master/src/consts.js
@@ -17,17 +17,15 @@ const getRefsFromFileContent = fileContent =>
         .unique()
         .fold();
 
-const getCaptureGroup = (regexStr, n) => str => {
-    if (!str || typeof str !== "string") return List.of();
-    return List.of(str.match(getRegex(regexStr, "g"))).map(
-        getCapture(regexStr, n)
-    );
-};
-const getCapture = (regexStr, n) => B(nth(n))(regexExec(regexStr));
-const regexExec = regexStr => m => getRegex(regexStr).exec(m);
+const getCaptureGroup = (regexStr, n) => str =>
+    Maybe.fromString(str)
+        .map(x => x.match(getRegex(regexStr, "g")))
+        //.inspectPred("matches", () => contains("../../commons", str))
+        .toList()
+        .map(getCapture(regexStr, n));
 
-const memoizeRegex = memoizeWith((regexStr, flags) => `${regexStr}${flags}`);
-const getRegex = memoizeRegex((regexStr, flags) => new RegExp(regexStr, flags));
+const getCapture = (regexStr, n) => pipe(regexExec(regexStr), nth(n));
+const regexExec = regexStr => m => getRegex(regexStr).exec(m);
 
 const getImportMatches = getCaptureGroup(IMPORT_REGEX, 1);
 
