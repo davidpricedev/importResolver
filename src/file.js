@@ -109,7 +109,7 @@ const getRefsFromFile = filename => getRefsFromFileContent(readFile(filename));
 const replaceContent = resolveObj => {
     const rawOrigContent = readFile(resolveObj.filename);
     Maybe.fromString(rawOrigContent)
-        //.inspect("content cant be empty")
+        //.inspectItem("content cant be empty")
         .map(_replaceAll(resolveObj.searchString, resolveObj.replaceString))
         .fold(I, writeFile(resolveObj.filename));
 };

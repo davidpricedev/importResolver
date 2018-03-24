@@ -1,4 +1,4 @@
-const { inspect, observe } = require("./spy");
+const { inspectItem, observe } = require("./spy");
 
 const replace = (loc, name, newimpl) => {
     const orig = loc[name];
@@ -18,11 +18,14 @@ describe("spy", () => {
         unreplace();
     });
 
-    describe("inspect", () => {
-        it("Will inspect", () => {
+    describe("inspectItem", () => {
+        it("Will inspectItem", () => {
             const data = [1, 2, "a"];
-            inspect("random data")(data);
-            expect(logSpy).toHaveBeenCalledWith("inspect: random data: ", data);
+            inspectItem("random data")(data);
+            expect(logSpy).toHaveBeenCalledWith(
+                "inspectItem: random data: ",
+                data
+            );
         });
     });
 

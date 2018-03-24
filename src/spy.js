@@ -11,8 +11,8 @@ const { isArray, isFunction, isObject } = require("ramda-adjunct");
  * Acts as the identity function with a console.log side effect,
  *  throws the prefix on the beginning of the console.log output
  */
-const inspect = prefix => x => {
-    console.log(`inspect: ${prefix}: `, x);
+const inspectItem = prefix => x => {
+    console.log(`inspectItem: ${prefix}: `, x);
     return x;
 };
 
@@ -58,7 +58,7 @@ const printArg = cond([
 ]);
 
 module.exports = {
-    inspect,
+    inspectItem,
     observe,
     observePred,
     observeFull,

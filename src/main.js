@@ -59,16 +59,16 @@ const run = () => {
         // for each file
         .map(getBrokenRefs(myRefExists, myIsNpmPath))
         // eliminate files we don't need to modify
-        //.inspect("before filter")
+        //.inspectItem("before filter")
         .filter(both(List.isList, invokeOn("isNonEmpty")))
         // unnest the list of lists
-        //.inspect("afterfilter")
+        //.inspectItem("afterfilter")
         .flatMap(I)
         .filter(pipe(prop("oldPath"), endsWith(".png"), not))
         .filter(pipe(prop("filename"), contains("Home")))
         // find potential solutions and add them to the object
         .map(x => merge(x, findPotentials(allFiles, config)(x)))
-        //.inspect("beforebest")
+        //.inspectItem("beforebest")
         .map(x => merge(x, resolveRef(allFiles, resolve)(x)))
         // Apply the changes - actually make the replacements
         .map(applyOrDisplay(config));
@@ -105,7 +105,6 @@ const findPotentials = (allFiles, config) => fileAndRef => ({
 });
 
 const resolveRef = (allFiles, resolver) => fileAndRef => {
-    console.log("fileandRef: ", fileAndRef);
     return merge(fileAndRef, resolver(fileAndRef));
 };
 

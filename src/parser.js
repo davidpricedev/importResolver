@@ -20,7 +20,7 @@ const getRefsFromFileContent = fileContent =>
 const getCaptureGroup = (regexStr, n) => str =>
     Maybe.fromString(str)
         .map(x => x.match(getRegex(regexStr, "g")))
-        //.inspectPred("matches", () => contains("../../commons", str))
+        //.inspectItemPred("matches", () => contains("../../commons", str))
         .toList()
         .map(getCapture(regexStr, n));
 

@@ -12,9 +12,10 @@ const {
     has,
     cond,
     not,
+    nth,
 } = require("ramda");
 const { isTruthy, isArray, isObject, isString } = require("ramda-adjunct");
-const { inspect } = require("./spy");
+const { inspectItem } = require("./spy");
 const { I, K, invokeOn } = require("./combinators");
 
 const _isList = x => both(has("_isList"), invokeOn("_isList"))(x);
@@ -46,17 +47,20 @@ const _List = x => ({
     toArray: () => x,
     maybeHead: () => Maybe.fromFalsible(head(x)),
     maybeLast: () => Maybe.fromFalsible(last(x)),
-    inspect: prefix => {
+    maybeNth: n => Maybe.fromFalsible(nth(n, x)),
+    log: (...args) => console.log.apply(this, args),
+    inspectItem: prefix => {
         console.log(mergeText("List", `(${prefix})`), x);
         return _List(x);
     },
-    inspectPred: (prefix, pred) => {
+    inspectItemPred: (prefix, pred) => {
         if (!pred(x)) return _List(x);
 
         console.log(mergeText("List", `(${prefix})`), x);
         return _List(x);
     },
     toMaybe: () => (x ? Maybe.Some(x) : Maybe.None()),
+    toString: () => x.toString(),
 });
 
 const _arrayToList = cond([
@@ -76,24 +80,33 @@ const mergeText = (a, b) => join(" ")([a, b]);
 
 const _Some = x => ({
     _value: x,
+    _some: true,
     map: f => _Some(f(x)),
     concat: y => {
         if (isObject(x) && isObject(y._value)) {
+            return _Some(merge(x, y._value));
+        } else if (isObject(x) && isObject(y)) {
             return _Some(merge(x, y));
         } else if (isString(x) || isString(y._value)) {
             return _Some(`${x}${y._value}`);
+        } else if (isArray(x) || isArray(y)) {
+            return _Some(concat(x, y));
+        } else {
+            console.log("cant concat", x, y);
+            return _None("unable to concat - unknown type");
         }
     },
     fold: (f, g = I) => g(x),
     coalesce: (f, g = I) => _Some(g(x)),
     toList: () => List.of(x || []),
-    inspect: prefix => {
-        inspect(mergeText("Some", prefix))(x);
+    log: (...args) => console.log.apply(this, args),
+    inspectItem: prefix => {
+        inspectItem(mergeText("Some", prefix))(x);
         return _Some(x);
     },
-    inspectPred: (prefix, pred) => {
+    inspectItemPred: (prefix, pred) => {
         if (pred(x)) {
-            inspect(mergeText("List", prefix))(x);
+            inspectItem(mergeText("List", prefix))(x);
         }
 
         return _Some(x);
@@ -101,17 +114,20 @@ const _Some = x => ({
 });
 
 const _None = x => ({
+    _none: true,
     map: () => _None(x),
-    fold: f => f(x),
+    concat: () => _None(x),
+    fold: (f = I) => f(x),
     coalesce: f => _Some(f(x)),
     toList: () => List.of([]),
-    inspect: prefix => {
-        inspect(mergeText("None", prefix))(x);
+    log: (...args) => console.log.apply(this, args),
+    inspectItem: prefix => {
+        inspectItem(mergeText("None", prefix))(x);
         return _None(x);
     },
-    inspectPred: (prefix, pred) => {
+    inspectItemPred: (prefix, pred) => {
         if (pred(x)) {
-            inspect(mergeText("List", prefix))(x);
+            inspectItem(mergeText("List", prefix))(x);
         }
 
         return _None(x);

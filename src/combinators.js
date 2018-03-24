@@ -1,4 +1,4 @@
-const { inspect } = require("./spy");
+const { inspectItem } = require("./spy");
 const { has, pipe, both } = require("ramda");
 
 // Standard (borrowed from https://gist.github.com/Avaq/1f0636ec5c8d6aed2e45)
@@ -37,11 +37,11 @@ const WB = f => g => x => f(g(x))(x);
 const allTrue = (...fns) =>
     fns.reduce((f, g) => {
         if (typeof f !== "function") {
-            inspect("f is not a function")(f);
+            inspectItem("f is not a function")(f);
             throw new Error("f is not a function! " + f.toString());
         }
         if (typeof g !== "function") {
-            inspect("g is not a function")(g);
+            inspectItem("g is not a function")(g);
             throw new Error("g is not a function! " + Object.keys(g));
         }
         return both(f, g);
@@ -53,11 +53,11 @@ const allTrue = (...fns) =>
 const mypipe = (...args) =>
     args.reduce((f, g) => {
         if (typeof f !== "function") {
-            inspect("f is not a function")(f);
+            inspectItem("f is not a function")(f);
             throw new Error("f is not a function! " + f.toString());
         }
         if (typeof g !== "function") {
-            inspect("g is not a function")(g);
+            inspectItem("g is not a function")(g);
             throw new Error("g is not a function! " + Object.keys(g));
         }
         return g(f);

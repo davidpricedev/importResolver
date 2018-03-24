@@ -69,6 +69,7 @@ const Node = R.curry((table, r, c) => ({
  * adapted from https://nlp.stanford.edu/IR-book/html/htmledition/edit-distance-1.html
  */
 const calculateDistance = R.curry((strh, strv) => {
+    console.log("calculating ", strh, strv);
     const m = new Table(strh.length + 1, strv.length + 1, 0);
     const myReplaceCost = getReplaceCost(strh, strv);
 

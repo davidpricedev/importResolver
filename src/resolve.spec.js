@@ -5,11 +5,13 @@ const {
     resolveValidation,
     first,
     closest,
+    resolve,
     editDistance,
 } = require("./resolve.js");
+const { Maybe, List } = require("./adts");
 const { merge } = require("ramda");
 
-xdescribe("resolve", () => {
+describe("resolve", () => {
     const tf = () => ({
         mul: jest.fn((x, y) => x * y),
         add: jest.fn((x, y) => x + y),
@@ -74,65 +76,77 @@ xdescribe("resolve", () => {
     });
 
     describe("resolveValidation", () => {
-        it("Will throw if no options supplied", () => {
-            expect(() => resolveValidation({})).toThrow();
-            expect(() => resolveValidation({ potentials: [] })).toThrow();
+        it("Will return maybe.some if potentials were supplied", () => {
+            const input = merge(inputBase, {
+                potentials: List.of(["fakeOptionA", "fakeOptionB"]),
+            });
+            expect(resolveValidation(input)).toMatchObject({ _some: true });
         });
 
-        it("Will return the option if only one is supplied", () => {
-            const input = merge(inputBase, {
-                potentials: ["fakeOption"],
-            });
-            expect(resolveValidation(input)).toMatchObject(
-                merge(inputBase, {
-                    newPath: "fakeOption",
-                })
-            );
-        });
-
-        it("Will return nothing if multiple options are supplied", () => {
-            const input = merge(inputBase, {
-                potentials: ["fakeOptionA", "fakeOptionB"],
-            });
-            expect(resolveValidation(input)).toBe(undefined);
+        it("Will return maybe.none if no potentials were supplied", () => {
+            expect(resolveValidation(inputBase)).toMatchObject({ _none: true });
         });
     });
 
     describe("first", () => {
         it("Will return the first option", () => {
-            const input = merge(inputBase, {
-                potentials: ["fakeOptionA", "fakeOptionB"],
-            });
-            expect(first(input)).toMatchObject(
+            const input = Maybe.Some(
                 merge(inputBase, {
-                    newPath: "fakeOptionA",
+                    potentials: List.of(["fakeOptionA", "fakeOptionB"]),
                 })
             );
+            expect(first(input)).toMatchObject({ first: "fakeOptionA" });
         });
     });
 
     describe("closest", () => {
         it("Will find the closest option", () => {
-            const input = merge(inputBase, {
-                potentials: [
-                    "../../../A/B/Z/X/Y/util.js",
-                    "../../../A/B/util.js",
-                ],
-            });
-            expect(closest(input)).toBe(input.potentials[1]);
+            const potentials = [
+                "../../../A/B/Z/X/Y/util.js",
+                "../../../A/B/util.js",
+            ];
+            const input = Maybe.Some(
+                merge(inputBase, {
+                    potentials: List.of(potentials),
+                })
+            );
+            expect(closest(input)).toMatchObject({ closest: potentials[1] });
         });
     });
 
     describe("editDistance", () => {
         it("Will find the nearest path by edit distance", () => {
+            const potentials = [
+                "../../features/cosmicChameleon",
+                "../../view/cosmicChameleon",
+            ];
+            const input = Maybe.Some(
+                merge(inputBase, {
+                    oldPath: "../../feature/cosmicChameleon",
+                    potentials: List.of(potentials),
+                })
+            );
+            expect(editDistance(input)).toMatchObject({
+                editDist: potentials[0],
+            });
+        });
+    });
+
+    describe("resolve", () => {
+        it("Will resolve all algorithms", () => {
+            const potentials = [
+                "../../features/cosmicChameleon",
+                "../../view/cosmicChameleon",
+            ];
             const input = merge(inputBase, {
                 oldPath: "../../feature/cosmicChameleon",
-                potentials: [
-                    "../../features/cosmicChameleon",
-                    "../../view/cosmicChameleon",
-                ],
+                potentials: List.of(potentials),
             });
-            expect(editDistance(input)).toBe(input.potentials[0]);
+            expect(resolve(input)).toMatchObject({
+                first: potentials[0],
+                closest: potentials[0],
+                editDist: potentials[0],
+            });
         });
     });
 });
