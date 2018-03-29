@@ -1,45 +1,48 @@
 {
-  "name": "import-resolver",
-  "version": "0.2.0",
-  "description": "Resolves broken paths",
-  "main": "index.js",
-  "author": "David Price <david.price.dev@gmail.com>",
-  "license": "Apache-2.0",
-  "repository": "github:davidpricedev/importResolver",
-  "dependencies": {
-    "data.task": "^3.1.1",
-    "monet": "^0.9.0-alpha.4",
-    "ramda": "^0.25.0",
-    "ramda-adjunct": "^2.5.0",
-    "shelljs": "^0.8.1",
-    "transducers-js": "^0.4.174"
-  },
-  "devDependencies": {
-    "eslint": "^4.17.0",
-    "eslint-plugin-jest": "^21.3.2",
-    "eslint-plugin-prettier": "^2.3.1",
-    "jest": "^22.3.0",
-    "jest-cli": "^22.3.0"
-  },
-  "jest": {
-    "collectCoverageFrom": [
-      "src/**/*.js",
-      "!**/__mocks__/**",
-      "!**/__node_modules__/**"
-    ],
-    "testPathIgnorePatterns": [
-      "./node_modules"
-    ]
-  },
-  "scripts": {
-    "lint": "eslint .",
-    "test": "jest . --watch",
-    "test-coverage": "jest . --coverage"
-  },
-  "files": [
-    "src/**/*.js"
-  ],
-  "bin": {
-    "import-resolver": "./index.js"
-  }
+    "name": "import-resolver",
+    "version": "0.2.0",
+    "description": "Resolves broken import/require paths",
+    "keywords": ["import", "require", "resolve", "find", "rearrange", "broken", "reference"],
+    "main": "index.js",
+    "author": {
+        "name": "David Price"
+    },
+    "bugs": {
+        "url": "https://github.com/davidpricedev/importResolver/issues"
+    },
+    "license": "Apache-2.0",
+    "homepage": "https://github.com/davidpricedev/importResolver",
+    "repository": "github:davidpricedev/importResolver",
+    "dependencies": {
+        "data.task": "^3.1.1",
+        "monet": "^0.9.0-alpha.4",
+        "ramda": "^0.25.0",
+        "ramda-adjunct": "^2.5.0",
+        "shelljs": "^0.8.1",
+        "transducers-js": "^0.4.174"
+    },
+    "devDependencies": {
+        "eslint": "^4.17.0",
+        "eslint-plugin-jest": "^21.3.2",
+        "eslint-plugin-prettier": "^2.3.1",
+        "jest": "^22.3.0",
+        "jest-cli": "^22.3.0"
+    },
+    "jest": {
+        "collectCoverageFrom": [
+            "src/**/*.js",
+            "!**/__mocks__/**",
+            "!**/__node_modules__/**"
+        ],
+        "testPathIgnorePatterns": ["./node_modules"]
+    },
+    "scripts": {
+        "lint": "eslint .",
+        "test": "jest . --watch",
+        "test-coverage": "jest . --coverage"
+    },
+    "files": ["src/**/*.js"],
+    "bin": {
+        "import-resolver": "./index.js"
+    }
 }

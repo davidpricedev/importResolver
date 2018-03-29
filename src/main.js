@@ -71,7 +71,6 @@ const run = () => {
         .map(applyAndMerge(resolveRef(allFiles, resolve)))
         // Apply the changes - actually make the replacements
         .map(applyAndMerge(resultToRef(config)))
-        .inspectItem("Full")
         .map(applyOrDisplay(config));
 };
 
@@ -108,9 +107,8 @@ const resolveRef = (allFiles, resolver) => fileAndRef => {
     return merge(fileAndRef, resolver(fileAndRef));
 };
 
-const { observe } = require("./spy");
 const resultToRef = config => resolveObj => ({
-    resultRef: observe("abs->rel", absoluteToRef)(
+    resultRef: absoluteToRef(
         prop("filename", resolveObj),
         getResult(config, resolveObj)
     ),
