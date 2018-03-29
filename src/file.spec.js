@@ -2,7 +2,11 @@ jest.mock("./io");
 jest.mock("./config");
 const io = require("./io");
 const {
-    getFullRelativePath,
+    relativeToAbsolute,
+    absoluteToRef,
+    absoluteToRelative,
+    takeUntilLast,
+    endsWithi,
     isNpmPath,
     _isEndInList,
     _fileFilter,
@@ -68,18 +72,76 @@ describe("file", () => {
 
     // assumes a unix variant OS for tests!
     // other OS might break this test due to node's path.sep being different
-    describe("getFullRelativePath", () => {
+    describe("relativeToAbsolute", () => {
         it("Will get the full path based on file path and relative reference", () => {
-            const result1 = getFullRelativePath(
+            const result1 = relativeToAbsolute(
                 "/home/user/package.json",
                 "./src/main.js"
             );
             expect(result1).toBe("/home/user/src/main.js");
-            const result2 = getFullRelativePath(
+            const result2 = relativeToAbsolute(
                 "/home/user/src/main.js",
                 "../index.js"
             );
             expect(result2).toBe("/home/user/index.js");
+        });
+    });
+
+    describe("absoluteToRef", () => {
+        it("Will convert path to an import/require reference", () => {
+            expect(absoluteToRef("A/B/C/file.js", "A/Y/Z/ref.js")).toBe(
+                "../../Y/Z/ref"
+            );
+        });
+
+        it("Will convert index path to an import/require reference", () => {
+            expect(absoluteToRef("A/B/C/file.js", "A/Y/Z/index.js")).toBe(
+                "../../Y/Z"
+            );
+        });
+
+        it("Will convert index path to an import/require reference", () => {
+            const relativeTo = "/Users/me/dev/t/proj/features/home/Home.js";
+            const abspath =
+                "/Users/me/dev/t/proj/common/components/AppContent.js";
+            expect(absoluteToRef(relativeTo, abspath)).toBe(
+                "../../common/components/AppContent"
+            );
+        });
+
+        it("Will have a ./ for files in the current folder", () => {
+            const file = "A/B/myCodeFile.js";
+            const ref = "A/B/myUtilsFile.js";
+            expect(absoluteToRef(file, ref)).toBe("./myUtilsFile");
+        });
+    });
+
+    describe("absoluteToRelative", () => {
+        it("Will convert absolute path to relative", () => {
+            expect(absoluteToRelative("A/B/C/file.js", "A/Y/Z/ref.js")).toBe(
+                "../../Y/Z/ref.js"
+            );
+        });
+
+        it("Will work for the case it failed", () => {
+            const file =
+                "/Users/user/dev/proj/common/testHelpers/reducerTestHelpers.js";
+            const ref = "/Users/user/dev/proj/utils/baseUtil.js";
+            expect(absoluteToRelative(file, ref)).toBe(
+                "../../utils/baseUtil.js"
+            );
+        });
+    });
+
+    describe("takeUntilLast", () => {
+        it("Will take the substring until the last occurrence", () => {
+            expect(takeUntilLast(".")("A/B/file.js")).toBe("A/B/file");
+        });
+
+        it("Will skip early occurrences", () => {
+            expect(takeUntilLast("/index")("A/index/B/index.js")).toBe(
+                "A/index/B"
+            );
         });
     });
 
@@ -185,6 +247,23 @@ describe("file", () => {
         });
     });
 
+    describe("endsWithi", () => {
+        it("Will return true if ending matches", () => {
+            expect(endsWithi("fox", "x")).toBe(true);
+        });
+
+        it("Will return false when ending doesn't match", () => {
+            expect(endsWithi("fox", "m")).toBe(false);
+            expect(endsWithi("fox", "M")).toBe(false);
+            expect(endsWithi("FOX", "m")).toBe(false);
+        });
+
+        it("Will return true if ending matches case insensitively", () => {
+            expect(endsWithi("fox", "X")).toBe(true);
+            expect(endsWithi("FOX", "x")).toBe(true);
+        });
+    });
+
     describe("doesFileExistWithExtnLookup", () => {
         const extns = [".js", ".jsx"];
         const allFiles = ["X/Y/realFile.jsx"];
@@ -241,21 +320,18 @@ describe("file", () => {
 
     describe("replaceContent", () => {
         beforeEach(() => {
-            io._writeFileContent.mockReset();
+            io._writeFile.mockReset();
         });
 
         it("Will read content, replace and write the new content", () => {
             expect(io.readFile("A")).toBe("file Content A");
             const resolveObj = {
                 filename: "A",
-                searchString: "e",
-                replaceString: "X",
+                oldPath: "e",
+                resultRef: "X",
             };
-            replaceContent(resolveObj);
-            expect(io._writeFileContent).toHaveBeenCalledWith(
-                "A",
-                "filX ContXnt A"
-            );
+            replaceContent(resolveObj, "closestSolution");
+            expect(io._writeFile).toHaveBeenCalledWith("A", "filX ContXnt A");
         });
     });
 

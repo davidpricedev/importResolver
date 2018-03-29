@@ -14,8 +14,8 @@ const readFile = file => {
     }
 };
 
-const _writeFileContent = jest.fn();
-const writeFile = filename => content => _writeFileContent(filename, content);
+const _writeFile = jest.fn();
+const writeFile = jest.fn(f => jest.fn(c => _writeFile(f, c)));
 
 const stripCwd = x => x.replace(`${_config.cwd}/`, "");
 
@@ -34,7 +34,7 @@ module.exports = {
     getRegex,
     readFile,
     writeFile,
-    _writeFileContent,
+    _writeFile,
     printArg,
     stripCwd,
     _config,

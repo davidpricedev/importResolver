@@ -27,7 +27,6 @@ export type Config = {
     //  * first - picks the first filepath with the filename that matches
     //  * random - random
     //  * closest - picks the minimum path where each '../' and folder counts as 1
-    //  * rightPath - picks the version whose rightmost/lowest path most closely matches
     //  * minDistance - uses https://en.wikipedia.org/wiki/Edit_distance algos to compute distance
     // TODO: Find a smart way to combine several of these (or maybe a few smart ways)
     resolveAlgo: string
@@ -35,11 +34,17 @@ export type Config = {
 */
 
 const defaultConfig = () => ({
-    fileTypes: [".js", ".jsx", ".mjs", ".ts", ".tsx"],
+    // to care about fixing references in
+    fileTypes: [".js", ".jsx", ".mjs", ".ts", ".tsx", ".json", ".png"],
+
+    // extensions excluded by require/import
     missingExtensions: [".js", ".jsx", ".mjs", ".ts", ".tsx", ".json"],
+
+    // folders to exclude
     exclude: [".git", "node_modules", "coverage"],
+
     requireGitClean: false,
-    resolveAlgo: "first",
+    resolveAlgo: "closest",
 });
 
 /**

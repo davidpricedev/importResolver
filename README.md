@@ -49,10 +49,7 @@ Default Configuration:
 * **resolveAlgo**: an algorithm to use for resolving cases where a file requires/imports '../a/b/index'
   and there are 2+ index.js files in the tree. This is the algorithm used to pick the right one.
   One of:
-  * **first**: picks the first
-  * **random**: picks one at random
   * **closest**: picks the closest - fewest directory traversals (up or down)
-  * **rightPath**: picks the one whose rightmost (deepest) path elements are closest to the files rightmost path elements
   * **minDistance**: uses an edit-distance algorithm
 
 ## TODO

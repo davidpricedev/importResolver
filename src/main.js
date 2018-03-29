@@ -1,32 +1,28 @@
 const {
-    not,
-    endsWith,
+    defaultTo,
     complement,
-    pipe,
     has,
     ifElse,
     prop,
     merge,
     both,
-    contains,
 } = require("ramda");
 const getConfig = require("./config").getConfig;
 const path = require("path");
-const { doesFileExist, getProcArgs, getAllNpms } = require("./io");
+const { getProcArgs, getAllNpms } = require("./io");
 const { List } = require("./adts");
-const { I, invokeOn } = require("./combinators");
+const { I, K, invokeOn } = require("./combinators");
 const {
-    getFullRelativePath,
+    absoluteToRef,
+    relativeToAbsolute,
     isNpmPath,
-    findFilesWithMatchingNames,
+    findFilesWithMatchingNamesi,
     getProjectFiles,
     getRefsFromFile,
     doesFileExistWithExtnLookup,
-    doesFileExistWithExtnLookupRaw,
     replaceContent,
 } = require("./file");
 const { resolve } = require("./resolve");
-const { observe, observePred, observeFull, observeFullPred } = require("./spy");
 
 /************
  ** Dictionary:
@@ -46,6 +42,8 @@ type resolveObj = {
 
 // TODO - pivot to running a file at a time instead of the whole batch at once
 const run = () => {
+    console.log("Gathering project files");
+
     // TODO merge allFiles and allNpms into config
     // TODO read up on "Reader" to solve the config better
     const config = getConfig(getProcArgs());
@@ -57,22 +55,27 @@ const run = () => {
 
     allFiles
         // for each file
+        .log("Looking for broken references")
         .map(getBrokenRefs(myRefExists, myIsNpmPath))
         // eliminate files we don't need to modify
-        //.inspectItem("before filter")
         .filter(both(List.isList, invokeOn("isNonEmpty")))
         // unnest the list of lists
-        //.inspectItem("afterfilter")
         .flatMap(I)
-        .filter(pipe(prop("oldPath"), endsWith(".png"), not))
-        .filter(pipe(prop("filename"), contains("Home")))
+        //.filter(pipe(prop("oldPath"), endsWith(".png"), not))
+        //.filter(pipe(prop("filename"), contains("Home")))
         // find potential solutions and add them to the object
-        .map(x => merge(x, findPotentials(allFiles, config)(x)))
-        //.inspectItem("beforebest")
-        .map(x => merge(x, resolveRef(allFiles, resolve)(x)))
+        .log("Looking for potential solutions")
+        .map(applyAndMerge(findPotentials(allFiles, config)))
+        // find the best options with a few algorithms
+        .log("Looking for the best solution")
+        .map(applyAndMerge(resolveRef(allFiles, resolve)))
         // Apply the changes - actually make the replacements
+        .map(applyAndMerge(resultToRef(config)))
+        .inspectItem("Full")
         .map(applyOrDisplay(config));
 };
+
+const applyAndMerge = f => x => merge(x, f(x));
 
 const getBrokenRefs = (doesExist, isNpm) => filename =>
     List.of(getRefsFromFile(filename))
@@ -83,11 +86,8 @@ const getBrokenRefs = (doesExist, isNpm) => filename =>
 const buildResolveObj = filename => oldPath => ({
     filename,
     oldPath,
-    fullOldPath: getFullRelativePath(filename, oldPath),
+    fullOldPath: relativeToAbsolute(filename, oldPath),
 });
-
-const refExistsRaw = excludedExtensions => refObj =>
-    doesFileExistWithExtnLookupRaw(excludedExtensions, refObj.fullOldPath);
 
 const refExists = (allFiles, excludedExtensions) => refObj =>
     doesFileExistWithExtnLookup(
@@ -97,23 +97,34 @@ const refExists = (allFiles, excludedExtensions) => refObj =>
     );
 
 const findPotentials = (allFiles, config) => fileAndRef => ({
-    potentials: observe(
-        "pot",
-        //contains("Home", fileAndRef.filename),
-        findFilesWithMatchingNames
-    )(allFiles, config.missingExtensions, path.basename(fileAndRef.oldPath)),
+    potentials: findFilesWithMatchingNamesi(
+        allFiles,
+        config.missingExtensions,
+        path.basename(fileAndRef.oldPath)
+    ),
 });
 
 const resolveRef = (allFiles, resolver) => fileAndRef => {
     return merge(fileAndRef, resolver(fileAndRef));
 };
 
-const displayChange = x =>
-    //console.log(`[${x.filename}]:${x.oldPath} -> ${x.newPath}`);
-    console.log(`[${x.filename}]:${x.oldPath} -> `, JSON.stringify(x, null, 2));
+const { observe } = require("./spy");
+const resultToRef = config => resolveObj => ({
+    resultRef: observe("abs->rel", absoluteToRef)(
+        prop("filename", resolveObj),
+        getResult(config, resolveObj)
+    ),
+});
+
+const getResult = (config, resolveObj) =>
+    defaultTo("")(prop(config.resolveAlgo, resolveObj));
+
+const displayChange = x => {
+    console.log(`[${x.filename}]:\n\t${x.oldPath}\n\t -> ${x.resultRef}`);
+};
 
 const displayError = x =>
-    console.log(`[${x.filename}]:${x.oldPath} ~ ${x.message}`);
+    console.log(`[${x.filename}]:\n\t${x.oldPath} ~ ${x.message}`);
 
 const display = ifElse(has("message"), displayError, displayChange);
 
@@ -122,8 +133,7 @@ const applyChange = x => {
     display(x);
 };
 
-const applyOrDisplay = config =>
-    prop("dryRun")(config) ? display : applyChange;
+const applyOrDisplay = ifElse(prop("dryRun"), K(display), K(applyChange));
 
 module.exports = {
     run,

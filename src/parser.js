@@ -1,8 +1,7 @@
-const { nth, contains, pipe } = require("ramda");
+const { nth, pipe } = require("ramda");
 const { Maybe } = require("./adts");
 const { getRegex } = require("./io");
 
-// TODO: use ast parsing and/or otherwise handle multi-line import statements
 // Adapted from https://github.com/alantheprice/es6-import/blob/master/src/consts.js
 const IMPORT_REGEX =
     "(?:^|\\n)\\s*import\\s+[{}a-zA-Z1-9\\-,_\\s]*from\\s+['`\"](.*)['`\"]";
@@ -20,7 +19,6 @@ const getRefsFromFileContent = fileContent =>
 const getCaptureGroup = (regexStr, n) => str =>
     Maybe.fromString(str)
         .map(x => x.match(getRegex(regexStr, "g")))
-        //.inspectItemPred("matches", () => contains("../../commons", str))
         .toList()
         .map(getCapture(regexStr, n));
 

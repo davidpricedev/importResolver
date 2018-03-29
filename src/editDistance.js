@@ -1,3 +1,5 @@
+"use strict";
+
 const R = require("ramda");
 
 /**
@@ -13,42 +15,47 @@ class Table {
 
         // initialize all entries with `init` or null
         const initVal = !R.isNil(init) ? init : null;
+
         this.table = R.map(R.always(initVal))(R.range(0, this.len));
 
-        this.get = R.curry((r, c) => this.table[this.whtoindex(r, c)]);
+        this.whtoindex = (row, col) => R.add(row, R.multiply(col, this.width));
 
-        this.set = R.curry((r, c, value) => {
-            this.table[this.whtoindex(r, c)] = value;
-        });
+        this.rowColLense = (row, col) => R.lensIndex(this.whtoindex(row, col));
+
+        this.set = R.curry((row, col, value) =>
+            R.set(this.rowColLense(row, col), value, this.table)
+        );
 
         this.nodeAt = Node(this);
+    }
 
-        this.whtoindex = (r, c) => R.add(r, R.multiply(c, this.width));
+    get(row, col) {
+        return R.view(this.rowColLense(row, col), this.table);
+    }
 
-        this.indextowh = index => {
-            const c = Math.floor(index / this.width);
-            const r = index - c * this.width;
-            return { r, c };
-        };
+    indextowh(index) {
+        const c = Math.floor(index / this.width);
+        const r = index - c * this.width;
+        return { r, c };
+    }
 
-        /**
-         * mutating, maps the given callback across the table.
-         * the callback should expect a node as the argument
-         */
-        this.map = mapFn => {
-            this.table.forEach((x, index) => {
-                const { r, c } = this.indextowh(index);
-                this.table[index] = mapFn(this.nodeAt(r, c));
-            });
-        };
+    /**
+     * mutating, maps the given callback across the table.
+     * the callback should expect a node as the argument
+     */
+    map(mapFn) {
+        this.table.forEach((x, index) => {
+            const { r, c } = this.indextowh(index);
+            this.table[index] = mapFn(this.nodeAt(r, c));
+        });
+    }
 
-        this.print = () => {
-            console.log(
-                R.map(x => R.slice(x, x + this.width, this.table))(
-                    R.range(0, this.height)
-                )
-            );
-        };
+    print() {
+        console.log(
+            R.map(x => R.slice(x, x + this.width, this.table))(
+                R.range(0, this.height)
+            )
+        );
     }
 }
 
@@ -69,7 +76,6 @@ const Node = R.curry((table, r, c) => ({
  * adapted from https://nlp.stanford.edu/IR-book/html/htmledition/edit-distance-1.html
  */
 const calculateDistance = R.curry((strh, strv) => {
-    console.log("calculating ", strh, strv);
     const m = new Table(strh.length + 1, strv.length + 1, 0);
     const myReplaceCost = getReplaceCost(strh, strv);
 

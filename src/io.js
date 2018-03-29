@@ -1,5 +1,5 @@
 const sh = require("shelljs");
-const { memoizeWith, concat, ifElse } = require("ramda");
+const { memoizeWith, curry, concat, ifElse } = require("ramda");
 const { K } = require("./combinators");
 const path = require("path");
 
@@ -11,15 +11,15 @@ const prefixCwd = x => path.join(process.cwd(), x);
 
 const stripCwd = x => x.replace(`${process.cwd()}/`, "");
 
-const writeFile = filename => content => _writeFileContent(filename, content);
-const _writeFileContent = (filename, content) =>
-    sh.ShellString(content).to(filename);
+const writeFile = curry((filename, content) =>
+    sh.ShellString(content).to(filename)
+);
 
 const doesFileExist = x => !!x && sh.test("-e", x);
 
 const readFile = ifElse(doesFileExist, x => sh.cat(x).stdout, K(null));
 
-const getAllFiles = path => sh.find(prefixCwd(path)); //.map(stripCwd);
+const getAllFiles = path => sh.find(prefixCwd(path));
 
 const getNpmFolders = () => sh.ls(prefixCwd("node_modules"));
 
@@ -43,7 +43,6 @@ module.exports = {
     readFile,
     stripCwd,
     writeFile,
-    _writeFileContent,
     doesFileExist,
     getAllFiles,
     getAllNpms,

@@ -48,7 +48,10 @@ const _List = x => ({
     maybeHead: () => Maybe.fromFalsible(head(x)),
     maybeLast: () => Maybe.fromFalsible(last(x)),
     maybeNth: n => Maybe.fromFalsible(nth(n, x)),
-    log: (...args) => console.log.apply(this, args),
+    log: (...args) => {
+        console.log.apply(this, args);
+        return _List(x);
+    },
     inspectItem: prefix => {
         console.log(mergeText("List", `(${prefix})`), x);
         return _List(x);
@@ -99,7 +102,10 @@ const _Some = x => ({
     fold: (f, g = I) => g(x),
     coalesce: (f, g = I) => _Some(g(x)),
     toList: () => List.of(x || []),
-    log: (...args) => console.log.apply(this, args),
+    log: (...args) => {
+        console.log.apply(this, args);
+        return _Some(x);
+    },
     inspectItem: prefix => {
         inspectItem(mergeText("Some", prefix))(x);
         return _Some(x);
@@ -120,7 +126,10 @@ const _None = x => ({
     fold: (f = I) => f(x),
     coalesce: f => _Some(f(x)),
     toList: () => List.of([]),
-    log: (...args) => console.log.apply(this, args),
+    log: (...args) => {
+        console.log.apply(this, args);
+        return _None(x);
+    },
     inspectItem: prefix => {
         inspectItem(mergeText("None", prefix))(x);
         return _None(x);

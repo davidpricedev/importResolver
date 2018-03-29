@@ -17,13 +17,15 @@ const Y = f => (g => g(g))(g => f(x => g(g)(x)));
 
 /**
  * invoke the fstr method on x with any provided arguments - a tacit/point-free converter
+ * JSON.stringify(myObj) -> invokeOn("stringify", myObj)(JSON)
  */
 const invokeOn = (fstr, ...args) => x => {
-    if (!has(fstr)(x)) {
-        console.log("passed isList, but isn't a list?", x, Object.keys(x));
-        throw new Error(fstr + " not found on the object " + x);
+    if (!x || !has(fstr, x)) {
+        throw new Error(
+            fstr + " not found on the " + typeof x + " object " + x
+        );
     }
-    return x[fstr](...args);
+    return x[fstr].apply(x, args);
 };
 
 /**
@@ -46,23 +48,6 @@ const allTrue = (...fns) =>
         }
         return both(f, g);
     });
-
-/**
- * My own implementation of pipe
- *
-const mypipe = (...args) =>
-    args.reduce((f, g) => {
-        if (typeof f !== "function") {
-            inspectItem("f is not a function")(f);
-            throw new Error("f is not a function! " + f.toString());
-        }
-        if (typeof g !== "function") {
-            inspectItem("g is not a function")(g);
-            throw new Error("g is not a function! " + Object.keys(g));
-        }
-        return g(f);
-    });
-    */
 
 module.exports = {
     I,

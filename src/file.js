@@ -1,4 +1,7 @@
 const {
+    ifElse,
+    toLower,
+    take,
     head,
     any,
     flip,
@@ -8,14 +11,13 @@ const {
     split,
     innerJoin,
     concat,
-    either,
-    equals,
     complement,
     contains,
     pipe,
     defaultTo,
+    lastIndexOf,
+    replace,
 } = require("ramda");
-//const { isString, isObject } = require("ramda-adjunct");
 const { Maybe, List, reduceOr } = require("./adts");
 const path = require("path");
 const {
@@ -26,9 +28,8 @@ const {
     getAllFiles,
     doesFileExist,
 } = require("./io");
-const { observe, observePred, observeFull, observeFullPred } = require("./spy");
 const { getRefsFromFileContent } = require("./parser");
-const { I, allTrue } = require("./combinators");
+const { WB, I, allTrue } = require("./combinators");
 
 const getProjectFiles = config =>
     List.of(getAllFiles(".")).filter(_fileFilter(config));
@@ -38,13 +39,11 @@ const _fileFilter = config =>
     pipe(
         stripCwd,
         allTrue(
-            //either(contains("Home"), contains("AppHeader")),
             _isEndInList(config.fileTypes),
             complement(_isStartInList(config.exclude))
         )
     );
 
-// searchString => list => Boolean
 const _isEndInList = ends => str =>
     List.of(ends)
         .map(flip(endsWith)(str))
@@ -54,10 +53,38 @@ const _isStartInList = starts => str =>
         .map(x => startsWith(x, str))
         .reduce(reduceOr, false);
 
-const getFullRelativePath = (filename, refpath) => {
-    if (!refpath) return "";
-    return path.join(path.dirname(filename), refpath);
+const relativeToAbsolute = (relativeToFile, relpath) => {
+    if (!relpath) return "";
+    return path.join(path.dirname(relativeToFile), relpath);
 };
+
+const absoluteToRef = (relativeToFile, abspath) => {
+    const relpathWithExtn = absoluteToRelative(relativeToFile, abspath);
+    return pipe(stripExtension, stripIndex, addHerePath)(relpathWithExtn);
+};
+
+const absoluteToRelative = (relativeToFile, abspath) => {
+    if (!abspath) return "";
+    return path.relative(path.dirname(relativeToFile), abspath);
+};
+
+/*
+overly complex version
+const stripExtension = config => filename => {
+    const extn = List.of(config.missingExtensions)
+        .map(ifElse(flip(endsWith)(filename), I, K(false)))
+        .reduce(reduceOr);
+    return filename.replace(extn, "");
+};
+*/
+
+//const takeUntil = untilChar => str => take(lastIndexOf(untilChar)(str))(str);
+const takeUntilLast = untilChar => WB(take)(lastIndexOf(untilChar));
+
+const stripExtension = takeUntilLast(".");
+const stripIndex = takeUntilLast("/index");
+
+const addHerePath = ifElse(startsWith("."), I, concat("./"));
 
 const isNpmPath = allNpms => refpath => {
     if (!refpath) return false;
@@ -65,7 +92,6 @@ const isNpmPath = allNpms => refpath => {
     // handle sub-nav into npm modules i.e. `import ... from 'redux-saga/effects';`
     const firstPathPart = head(split("/", refpath));
 
-    // Assume relative paths are never npms
     if (firstPathPart.startsWith(".") && !contains("node_modules", refpath))
         return false;
 
@@ -85,11 +111,20 @@ const findFilesWithMatchingNames = (allFiles, excludedExtns, filename) =>
         .map(_getExisting(allFiles))
         .toList();
 
-// NOT working for real-world examples
-const _getExistingX = allFiles => potentials =>
-    observe("_getExisting", innerJoin(flip(endsWith), allFiles, potentials));
 const _getExisting = allFiles => potentials => {
     return innerJoin(flip(endsWith), List.toArray(allFiles), potentials);
+};
+
+const findFilesWithMatchingNamesi = (allFiles, excludedExtns, filename) =>
+    Maybe.Some(_getPotentialFileNames(filename, excludedExtns))
+        .map(_getExistingi(allFiles))
+        .toList();
+
+const endsWithi = (str = "", ending = "") =>
+    endsWith(toLower(ending), toLower(str));
+
+const _getExistingi = allFiles => potentials => {
+    return innerJoin(endsWithi, List.toArray(allFiles), potentials);
 };
 
 const _getPotentialFileNames = (filename, extns) =>
@@ -109,30 +144,35 @@ const getRefsFromFile = filename => getRefsFromFileContent(readFile(filename));
 const replaceContent = resolveObj => {
     const rawOrigContent = readFile(resolveObj.filename);
     Maybe.fromString(rawOrigContent)
-        //.inspectItem("content cant be empty")
-        .map(_replaceAll(resolveObj.searchString, resolveObj.replaceString))
+        .map(_replaceAll(resolveObj.oldPath, resolveObj.resultRef))
         .fold(I, writeFile(resolveObj.filename));
 };
 
-const _replaceAll = (searchStr, replaceStr) => str =>
-    str.replace(stringToRegex(searchStr), replaceStr);
+const _replaceAll = (searchStr, replaceStr) =>
+    replace(stringToRegex(searchStr), replaceStr);
 
 const stringToRegex = searchStr => getRegex(_escapeRegExp(searchStr), "g");
 
 /**
  * borrowed from https://stackoverflow.com/a/17606289/567493
  */
-const _escapeRegExp = str => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const _escapeRegExp = replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 module.exports = {
-    getFullRelativePath,
+    relativeToAbsolute,
+    absoluteToRef,
+    absoluteToRelative,
+    takeUntilLast,
+    endsWithi,
     _fileFilter,
     isNpmPath,
     _isEndInList,
     _isStartInList,
     findFilesWithMatchingNames,
+    findFilesWithMatchingNamesi,
     _getPotentialFileNames,
     _getExisting,
+    _getExistingi,
     getRefsFromFile,
     getProjectFiles,
     doesFileExistWithExtnLookup,
