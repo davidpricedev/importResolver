@@ -1,7 +1,7 @@
-jest.dontMock("../config");
-const realConfig = require("../config");
+jest.dontMock('../config');
+const realConfig = require('../config');
 
 module.exports = {
-    defaultConfig: realConfig.defaultConfig,
-    getConfig: () => realConfig.defaultConfig,
+  defaultConfig: realConfig.defaultConfig,
+  getConfig: () => realConfig.defaultConfig,
 };

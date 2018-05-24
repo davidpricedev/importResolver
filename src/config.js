@@ -1,9 +1,9 @@
-const { cond, contains } = require("ramda");
-const { List, reduceObj } = require("./adts");
-const { I, K, T } = require("./combinators");
-const { requireCwd, doesFileExist } = require("./io");
+const { cond, contains } = require('ramda');
+const { List, reduceObj } = require('./adts');
+const { I, K, T } = require('./combinators');
+const { requireCwd, doesFileExist } = require('./io');
 
-const EXPECTED_CONFIG_NAME = "./importResolver.json";
+const EXPECTED_CONFIG_NAME = './importResolver.json';
 
 /*
 export type Config = {
@@ -34,38 +34,38 @@ export type Config = {
 */
 
 const defaultConfig = () => ({
-    // to care about fixing references in
-    fileTypes: [".js", ".jsx", ".mjs", ".ts", ".tsx", ".json", ".png"],
+  // to care about fixing references in
+  fileTypes: ['.js', '.jsx', '.mjs', '.ts', '.tsx', '.json', '.png'],
 
-    // extensions excluded by require/import
-    missingExtensions: [".js", ".jsx", ".mjs", ".ts", ".tsx", ".json"],
+  // extensions excluded by require/import
+  missingExtensions: ['.js', '.jsx', '.mjs', '.ts', '.tsx', '.json'],
 
-    // folders to exclude
-    exclude: [".git", "node_modules", "coverage"],
+  // folders to exclude
+  exclude: ['.git', 'node_modules', 'coverage'],
 
-    requireGitClean: false,
-    resolveAlgo: "closest",
+  requireGitClean: false,
+  resolveAlgo: 'closest',
 });
 
 /**
  * Loads the config file from the file provided on teh command line or the canonically named json file
  */
 const getConfig = rawArgs =>
-    List.of([getConfigFileContent, getDryRun])
-        .map(T(rawArgs))
-        .reduce(reduceObj);
+  List.of([getConfigFileContent, getDryRun])
+    .map(T(rawArgs))
+    .reduce(reduceObj);
 
 const getConfigFileContent = args =>
-    List.of(args)
-        .maybeLast()
-        .coalesce(findBestConfig, findBestConfig)
-        .fold(I);
+  List.of(args)
+    .maybeLast()
+    .coalesce(findBestConfig, findBestConfig)
+    .fold(I);
 
 const cmdArgCase = () => [doesFileExist, requireCwd];
 
 const wellKnownCase = () => [
-    () => doesFileExist(EXPECTED_CONFIG_NAME),
-    () => requireCwd(EXPECTED_CONFIG_NAME),
+  () => doesFileExist(EXPECTED_CONFIG_NAME),
+  () => requireCwd(EXPECTED_CONFIG_NAME),
 ];
 
 const defaultCase = () => [K(true), defaultConfig];
@@ -73,9 +73,9 @@ const defaultCase = () => [K(true), defaultConfig];
 const findBestConfig = cond([cmdArgCase(), wellKnownCase(), defaultCase()]);
 
 const getDryRun = args => ({ dryRun: isDryRun(args) });
-const isDryRun = contains("--dry-run");
+const isDryRun = contains('--dry-run');
 
 module.exports = {
-    getConfig,
-    defaultConfig,
+  getConfig,
+  defaultConfig,
 };

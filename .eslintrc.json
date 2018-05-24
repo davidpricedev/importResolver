@@ -1,28 +1,33 @@
 {
-    "env": {
-        "es6": true,
-        "node": true,
-        "jest": true
-    },
-    "extends": "eslint:recommended",
-    "parserOptions": {
-        "sourceType": "module",
-        "ecmaFeatures": {
-            "experimentalObjectRestSpread": true
-        }
-    },
-    "rules": {
-        "indent": ["error", 4, { "SwitchCase": 1 }],
-        "linebreak-style": ["error", "unix"],
-        "quotes": ["error", "double"],
-        "no-console": ["warn"],
-        "semi": ["error", "always"],
-        "comma-dangle": ["error", {
-            "arrays": "always-multiline",
-            "objects": "always-multiline",
-            "imports": "always-multiline",
-            "exports": "always-multiline",
-            "functions": "ignore"
-        }]
+  "env": {
+    "es6": true,
+    "node": true,
+    "jest": true
+  },
+  "plugins": ["prettier"],
+  "extends": ["prettier"],
+  "parserOptions": {
+    "sourceType": "module",
+    "ecmaFeatures": {
+      "experimentalObjectRestSpread": true
     }
+  },
+  "rules": {
+    "prettier/prettier": "error",
+    "indent": ["error", 2, { "SwitchCase": 1 }],
+    "linebreak-style": ["error", "unix"],
+    "no-console": ["warn"],
+    "semi": ["error", "always"],
+    "comma-dangle": [
+      "error",
+      {
+        "arrays": "always-multiline",
+        "objects": "always-multiline",
+        "imports": "always-multiline",
+        "exports": "always-multiline",
+        "functions": "ignore"
+      }
+    ],
+    "curly": ["error", "multi-or-nest"]
+  }
 }

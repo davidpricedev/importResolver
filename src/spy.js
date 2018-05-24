@@ -1,5 +1,5 @@
-const { both, has, map, cond } = require("ramda");
-const { isArray, isFunction, isObject } = require("ramda-adjunct");
+const { both, has, map, cond } = require('ramda');
+const { isArray, isFunction, isObject } = require('ramda-adjunct');
 
 /***********************************************
  * Functional Programming leads to structures that are moderately more complex to console.log
@@ -12,8 +12,8 @@ const { isArray, isFunction, isObject } = require("ramda-adjunct");
  *  throws the prefix on the beginning of the console.log output
  */
 const inspectItem = prefix => x => {
-    console.log(`inspectItem: ${prefix}: `, x);
-    return x;
+  console.log(`inspectItem: ${prefix}: `, x);
+  return x;
 };
 
 /**
@@ -26,17 +26,17 @@ const inspectItem = prefix => x => {
  *  prints `[mult] multiply( [3, 5] ) -> 15`
  */
 const _observe = (prefix, format, pred, f) => (...args) => {
-    const result = f.apply(this, args);
-    if (pred.apply(this, args)) {
-        console.log(
-            `[${prefix}] ${f.name}(`,
-            map(format, args),
-            ") -> ",
-            format(result)
-        );
-    }
+  const result = f.apply(this, args);
+  if (pred.apply(this, args)) {
+    console.log(
+      `[${prefix}] ${f.name}(`,
+      map(format, args),
+      ') -> ',
+      format(result)
+    );
+  }
 
-    return result;
+  return result;
 };
 
 const I = x => x;
@@ -47,20 +47,20 @@ const observeFull = (prefix, f) => _observe(prefix, I, K(true), f);
 const observeFullPred = (prefix, pred, f) => _observe(prefix, I, pred, f);
 
 // reimplement to avoid circular dependency on adts
-const _isList = both(has("_isList"), y => y._isList());
+const _isList = both(has('_isList'), y => y._isList());
 
 const printArg = cond([
-    [isArray, x => `[..${x.length}..]`],
-    [isFunction, x => `${x.name} (${x.length}-ary) => {}`],
-    [_isList, x => `${x.slice(0, 20).toArray()}`],
-    [isObject, x => `{..${Object.keys(x)}..}`],
-    [() => true, x => x],
+  [isArray, x => `[..${x.length}..]`],
+  [isFunction, x => `${x.name} (${x.length}-ary) => {}`],
+  [_isList, x => `${x.slice(0, 20).toArray()}`],
+  [isObject, x => `{..${Object.keys(x)}..}`],
+  [() => true, x => x],
 ]);
 
 module.exports = {
-    inspectItem,
-    observe,
-    observePred,
-    observeFull,
-    observeFullPred,
+  inspectItem,
+  observe,
+  observePred,
+  observeFull,
+  observeFullPred,
 };
